@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@piplabs/cdr-sdk": ["./lib/cdr-sdk/sdk"],
+      "@piplabs/cdr-sdk/*": ["./lib/cdr-sdk/sdk/*"],
+      "@piplabs/cdr-contracts": ["./lib/cdr-sdk/contracts"],
+      "@piplabs/cdr-contracts/*": ["./lib/cdr-sdk/contracts/*"],
+      "@piplabs/cdr-crypto": ["./lib/cdr-sdk/crypto"],
+      "@piplabs/cdr-crypto/*": ["./lib/cdr-sdk/crypto/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    "external",
+    "node_modules/@piplabs/**/__tests__/**",
+    "node_modules/@piplabs/**/*.test.ts",
+    "node_modules/@piplabs/**/*.test.tsx"
+  ]
+}
