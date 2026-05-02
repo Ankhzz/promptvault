@@ -22,7 +22,22 @@ export const CONTRACTS = {
 export const CDR_CONFIG = {
   network: 'testnet' as const,
   defaultTimeoutMs: 180000,
+  validationRpcUrl: 'https://aeneid.storyrpc.io' as const,
 } as const
+
+export function getCometRpcUrl(): string {
+  const url = process.env.NEXT_PUBLIC_COMET_RPC_URL
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_COMET_RPC_URL is required in production (must be HTTPS)')
+    }
+    return 'http://172.192.41.96:26657'
+  }
+  if (process.env.NODE_ENV === 'production' && !url.startsWith('https://')) {
+    throw new Error('NEXT_PUBLIC_COMET_RPC_URL must use HTTPS in production')
+  }
+  return url
+}
 
 export const UI_CONFIG = {
   projectName: 'PromptVault',

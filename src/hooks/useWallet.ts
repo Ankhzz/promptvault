@@ -54,9 +54,8 @@ export function useWallet(): UseWalletReturn {
           account: wallet.address as Address,
         })
         setWalletClient(client)
-      } catch (error) {
-        console.error('Failed to init wallet client:', error)
-        setWalletClient(null)
+    } catch {
+      setWalletClient(null)
       }
     }
 

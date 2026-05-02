@@ -38,21 +38,13 @@ export function useCdrEncrypt() {
       setIsEncrypting(true);
 
       try {
-        console.log('[CDR] Getting global pub key...');
         const globalPubKey = await client.observer.getGlobalPubKey();
-        console.log('[CDR] Global pub key:', toHex(globalPubKey));
 
         const dataKey = crypto.getRandomValues(new Uint8Array(32));
         const dataKeyHex = toHex(dataKey) as `0x${string}`;
-        console.log('[CDR] Generated data key:', dataKeyHex);
 
         const readConditionData = encodeLicenseReadCondition(ipId);
         const writeConditionData = encodeWriteConditionData(writerAddress);
-
-        console.log('[CDR] Uploading vault with:');
-        console.log('  readCondition:', CDR_CONDITIONS.readCondition);
-        console.log('  writeCondition:', CDR_CONDITIONS.writeCondition);
-        console.log('  ipId (in readConditionData):', ipId);
 
         const result = await client.uploader.uploadCDR({
           dataKey,
@@ -65,8 +57,6 @@ export function useCdrEncrypt() {
           accessAuxData: '0x',
         });
 
-        console.log('[CDR] Upload result:', result);
-
         return {
           success: true,
           uuid: result.uuid,
@@ -75,7 +65,6 @@ export function useCdrEncrypt() {
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[CDR] Upload error:', msg);
         return { success: false, error: msg };
       } finally {
         setIsEncrypting(false);

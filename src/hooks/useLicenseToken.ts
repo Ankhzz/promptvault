@@ -60,36 +60,25 @@ export function useLicenseToken() {
       setIsMinting(true);
       setError(null);
 
-      try {
-        console.log('[LicenseToken] minting:', {
-          licensorIpId: params.licensorIpId,
-          licenseTermsId: params.licenseTermsId,
-          amount: params.amount ?? 1,
-        });
+    try {
+      const result = await storyClient.license.mintLicenseTokens({
+        licensorIpId: params.licensorIpId,
+        licenseTermsId: params.licenseTermsId,
+        amount: params.amount ?? 1,
+        receiver: params.receiver,
+      });
 
-        const result = await storyClient.license.mintLicenseTokens({
-          licensorIpId: params.licensorIpId,
-          licenseTermsId: params.licenseTermsId,
-          amount: params.amount ?? 1,
-          receiver: params.receiver,
-        });
+      const licenseTokenId = result.licenseTokenIds?.[0];
 
-        const licenseTokenId = result.licenseTokenIds?.[0];
-        console.log('[LicenseToken] minted:', {
-          licenseTokenIds: result.licenseTokenIds,
-          txHash: result.txHash,
-        });
-
-        return {
+      return {
           success: true,
           licenseTokenId,
           licenseTokenIds: result.licenseTokenIds ?? undefined,
           txHash: result.txHash ?? undefined,
         };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown minting error';
-        console.error('[LicenseToken] mint error:', msg, err);
-        setError(msg);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown minting error';
+      setError(msg);
         return { success: false, error: msg };
       } finally {
         setIsMinting(false);

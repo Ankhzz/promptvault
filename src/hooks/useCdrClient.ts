@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { createPublicClient, createWalletClient, custom, http } from 'viem';
-import type { PublicClient, WalletClient } from 'viem';
+import { createPublicClient, http } from 'viem';
+import type { PublicClient } from 'viem';
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk';
-import { STORY_CHAIN, CDR_CONFIG } from '@/lib/constants';
+import { STORY_CHAIN, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants';
 import { useWallet } from './useWallet';
 
 let wasmInitialized = false;
@@ -25,7 +25,6 @@ export function useCdrClient() {
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'WASM init failed';
-      console.error('[CDR] initWasm error:', msg);
       setError(msg);
       return false;
     } finally {
@@ -55,13 +54,13 @@ export function useCdrClient() {
           network: CDR_CONFIG.network,
           publicClient,
           walletClient,
+          cometRpcUrl: getCometRpcUrl(),
+          validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
         });
         setCdrClient(client);
         setError(null);
-        console.log('[CDR] Client initialized');
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'CDR client init failed';
-        console.error('[CDR] Client init error:', msg);
         setError(msg);
       }
     };

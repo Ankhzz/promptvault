@@ -52,9 +52,8 @@ export function useStoryClient(): UseStoryClientReturn {
         const storyClient = StoryClient.newClient(config)
         setClient(storyClient)
         setError(null)
-      } catch (err) {
-        console.error('Failed to init Story client:', err)
-        setError(err instanceof Error ? err.message : 'Failed to init Story client')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to init Story client')
         setClient(null)
       }
     }
@@ -103,7 +102,6 @@ export function useStoryClient(): UseStoryClientReturn {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      console.error('Failed to register IP asset:', err)
       setError(errorMessage)
       return { success: false, error: errorMessage }
     }
