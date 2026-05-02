@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -8,26 +9,48 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
 import { UnlockIcon, KeyIcon, CheckIcon, CopyIcon } from '@/components/Icons'
+import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
 import { CDR_CONDITIONS, encodeAccessAuxData } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
+import { recordVaultAccess, getVaultEncryptedDataKey } from '@/db/queries'
+import {
+  decryptDataKeyForWallet,
+  EIP712_DOMAIN,
+  EIP712_TYPES,
+  EIP712_PRIMARY_TYPE,
+  buildEIP712Message,
+  type EncryptedDataKey,
+  type SignTypedDataFn,
+} from '@/lib/crypto/datakey-encryption'
 
 type AccessState = 'idle' | 'accessing' | 'done'
+type UnlockMethod = 'cdr_threshold' | 'local_recovery'
 
 export default function UnlockVaultPage() {
+  return (
+    <Suspense>
+      <UnlockVaultContent />
+    </Suspense>
+  )
+}
+
+function UnlockVaultContent() {
   const { authenticated, login } = usePrivy()
   const { wallets } = useWallets()
   const { addToast } = useToast()
+  const searchParams = useSearchParams()
 
-  const [vaultUuid, setVaultUuid] = useState('')
+  const [vaultUuid, setVaultUuid] = useState(searchParams.get('vault') ?? '')
   const [licenseTokenId, setLicenseTokenId] = useState('')
   const [state, setState] = useState<AccessState>('idle')
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
+  const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
 
-  const accessVault = useCallback(async () => {
+  const accessVaultCDR = useCallback(async () => {
     if (!vaultUuid || !licenseTokenId) {
       addToast({ title: 'Missing fields', description: 'Enter both Vault UUID and License Token ID', variant: 'warning' })
       return
@@ -65,8 +88,15 @@ export default function UnlockVaultPage() {
       const keyHex = toHex(result.dataKey)
       setRecoveredKey(keyHex)
       setReadTxHash(result.txHash ?? null)
+      setUnlockMethod('cdr_threshold')
       setState('done')
-      addToast({ title: 'Vault unlocked!', description: 'Data key recovered', variant: 'accent' })
+      addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
+
+      recordVaultAccess({
+        vaultUuid: Number(vaultUuid),
+        walletAddress: clients.address,
+        txHash: result.txHash ?? undefined,
+      }).catch(() => {})
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setState('idle')
@@ -74,15 +104,69 @@ export default function UnlockVaultPage() {
     }
   }, [vaultUuid, licenseTokenId, wallets, addToast])
 
+  const accessVaultLocal = useCallback(async () => {
+    if (!vaultUuid) {
+      addToast({ title: 'Missing Vault UUID', variant: 'warning' })
+      return
+    }
+
+    const clients = await getWalletClients(wallets)
+    if (!clients) {
+      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setState('accessing')
+      addToast({ title: 'Recovering data key locally...', description: 'Using your encrypted data key backup', variant: 'default' })
+
+      const vaultData = await getVaultEncryptedDataKey(Number(vaultUuid))
+      if (!vaultData?.encryptedDataKey) {
+        setState('idle')
+        addToast({ title: 'No local key backup', description: 'This vault has no encrypted data key stored. Use CDR threshold unlock instead.', variant: 'warning' })
+        return
+      }
+
+      if (vaultData.ownerAddress.toLowerCase() !== clients.address.toLowerCase()) {
+        setState('idle')
+        addToast({ title: 'Not vault owner', description: 'Local recovery is only available for the vault owner', variant: 'destructive' })
+        return
+      }
+
+      const encrypted: EncryptedDataKey = JSON.parse(vaultData.encryptedDataKey)
+
+      const signTypedDataFn: SignTypedDataFn = async ({ domain, types, primaryType, message }) => {
+        return clients.walletClient.signTypedData({
+          domain,
+          types,
+          primaryType,
+          message,
+        })
+      }
+
+      const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn)
+      const keyHex = toHex(dataKey)
+      setRecoveredKey(keyHex)
+      setReadTxHash(null)
+      setUnlockMethod('local_recovery')
+      setState('done')
+      addToast({ title: 'Vault unlocked!', description: 'Data key recovered from local backup', variant: 'accent' })
+
+      recordVaultAccess({
+        vaultUuid: Number(vaultUuid),
+        walletAddress: clients.address,
+      }).catch(() => {})
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setState('idle')
+      addToast({ title: 'Local recovery failed', description: msg.slice(0, 120), variant: 'destructive' })
+    }
+  }, [vaultUuid, wallets, addToast])
+
   if (!authenticated) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-          <UnlockIcon className="h-12 w-12 text-subtle mb-4" />
-          <p className="text-lg font-medium text-foreground mb-2">Connect Wallet to Unlock Vaults</p>
-          <p className="text-sm text-muted mb-6">You need a wallet holding a valid license token to decrypt content</p>
-          <Button variant="primary" onClick={login}>Connect Wallet</Button>
-        </div>
+        <AuthGuard>{null}</AuthGuard>
       </AppShell>
     )
   }
@@ -93,7 +177,7 @@ export default function UnlockVaultPage() {
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Unlock Vault</h1>
           <p className="mt-2 text-muted text-base">
-            Access encrypted content using a valid license token. The CDR network will verify your on-chain license before releasing the decryption key.
+            Access encrypted content using a valid license token or recover from your local backup.
           </p>
         </div>
 
@@ -123,16 +207,25 @@ export default function UnlockVaultPage() {
               mono
             />
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-3">
             <Button
               variant="primary"
               size="lg"
-              onClick={accessVault}
+              onClick={accessVaultCDR}
               loading={state === 'accessing'}
               disabled={state === 'accessing'}
               className="w-full"
             >
-              {state === 'accessing' ? 'Decrypting...' : 'Unlock Vault'}
+              {state === 'accessing' ? 'Decrypting...' : 'Unlock via CDR Network'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={accessVaultLocal}
+              disabled={state === 'accessing'}
+              className="w-full"
+            >
+              Recover from Local Backup
             </Button>
           </CardFooter>
         </Card>
@@ -144,7 +237,11 @@ export default function UnlockVaultPage() {
                 <CheckIcon className="h-5 w-5 text-accent" />
                 <CardTitle className="text-accent">Vault Unlocked</CardTitle>
               </div>
-              <CardDescription>Data key recovered from CDR validator network</CardDescription>
+              <CardDescription>
+                {unlockMethod === 'cdr_threshold'
+                  ? 'Data key recovered from CDR validator network'
+                  : 'Data key recovered from local encrypted backup'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between gap-4">
@@ -174,6 +271,12 @@ export default function UnlockVaultPage() {
                   </a>
                 </div>
               )}
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted">Method</span>
+                <Badge variant={unlockMethod === 'cdr_threshold' ? 'accent' : 'default'} dot>
+                  {unlockMethod === 'cdr_threshold' ? 'CDR Threshold' : 'Local Recovery'}
+                </Badge>
+              </div>
             </CardContent>
             <CardFooter>
               <Badge variant="accent" dot>Decrypted</Badge>

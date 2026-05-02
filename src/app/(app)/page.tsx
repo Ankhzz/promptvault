@@ -1,18 +1,14 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { VaultIcon, ShieldIcon, KeyIcon, ArrowRightIcon } from '@/components/Icons'
 import Link from 'next/link'
-import { usePrivy } from '@privy-io/react-auth'
-
-const stats = [
-  { label: 'Total Vaults', value: '0', accent: false },
-  { label: 'Licensed Access', value: '0', accent: true },
-  { label: 'IP Assets', value: '0', accent: false },
-]
+import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { getUserStats, getUserVaults } from '@/db/queries'
 
 const features = [
   {
@@ -37,6 +33,29 @@ const features = [
 
 export default function DashboardPage() {
   const { authenticated } = usePrivy()
+  const { wallets } = useWallets()
+  const [stats, setStats] = useState<{ totalVaults: number; activeVaults: number; accessedVaults: number; licenseCount: number; accessCount: number } | null>(null)
+  const [vaultList, setVaultList] = useState<Array<{ uuid: number; name: string; status: string; ipId: string; createdAt: Date }>>([])
+
+  const address = wallets[0]?.address
+
+  useEffect(() => {
+    if (!address) return
+    getUserStats(address).then(setStats).catch(() => {})
+    getUserVaults(address).then(setVaultList).catch(() => {})
+  }, [address])
+
+  const statCards = stats
+    ? [
+        { label: 'Total Vaults', value: String(stats.totalVaults), accent: false },
+        { label: 'Licensed Access', value: String(stats.accessCount), accent: true },
+        { label: 'IP Assets', value: String(stats.totalVaults), accent: false },
+      ]
+    : [
+        { label: 'Total Vaults', value: '-', accent: false },
+        { label: 'Licensed Access', value: '-', accent: true },
+        { label: 'IP Assets', value: '-', accent: false },
+      ]
 
   return (
     <AppShell>
@@ -53,7 +72,7 @@ export default function DashboardPage() {
         {authenticated ? (
           <>
             <div className="grid grid-cols-3 gap-4">
-              {stats.map((stat) => (
+              {statCards.map((stat) => (
                 <Card key={stat.label}>
                   <CardContent>
                     <p className="text-sm text-muted mb-1">{stat.label}</p>
@@ -76,16 +95,39 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <Card className="flex flex-col items-center justify-center py-16 text-center border-dashed">
-              <VaultIcon className="h-12 w-12 text-subtle mb-4" />
-              <p className="text-muted text-sm">No vaults yet</p>
-              <p className="text-subtle text-xs mt-1 mb-6">Create your first encrypted vault to get started</p>
-              <Link href="/create">
-                <Button variant="secondary" size="sm">
-                  Create First Vault
-                </Button>
-              </Link>
-            </Card>
+            {vaultList.length > 0 ? (
+              <div className="space-y-3">
+                {vaultList.map((vault) => (
+                  <Card key={vault.uuid} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">{vault.name}</span>
+                          <Badge variant={vault.status === 'accessed' ? 'default' : 'accent'} dot>
+                            {vault.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId.slice(0, 10)}...{vault.ipId.slice(-6)}</p>
+                      </div>
+                      <Link href={`/unlock?vault=${vault.uuid}`}>
+                        <Button variant="secondary" size="sm">Unlock</Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="flex flex-col items-center justify-center py-16 text-center border-dashed">
+                <VaultIcon className="h-12 w-12 text-subtle mb-4" />
+                <p className="text-muted text-sm">No vaults yet</p>
+                <p className="text-subtle text-xs mt-1 mb-6">Create your first encrypted vault to get started</p>
+                <Link href="/create">
+                  <Button variant="secondary" size="sm">
+                    Create First Vault
+                  </Button>
+                </Link>
+              </Card>
+            )}
           </>
         ) : (
           <>

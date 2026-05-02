@@ -1,42 +1,45 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { ActivityIcon } from '@/components/Icons'
+import { AuthGuard } from '@/components/AuthGuard'
 import { STORY_CHAIN } from '@/lib/constants'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { getUserActivity } from '@/db/queries'
 
-const recentActivity = [
-  {
-    type: 'vault_created' as const,
-    label: 'Vault #1044 Created',
-    description: 'IP Asset 0x63a4...E007 registered with nonCommercialSocialRemixing license',
-    txHash: '0x2696598acb74c6afb1032669c8ae622e3ab69e1974e278973043cf70e7d73417',
-    time: 'Recently',
-  },
-  {
-    type: 'license_minted' as const,
-    label: 'License Token #72508 Minted',
-    description: 'License for IP Asset 0x63a4...E007 on terms #2054',
-    txHash: '0x2881ef844ee8078762514ad172ae545516de60f9552503dd4ff1aca0483a1e36',
-    time: 'Recently',
-  },
-  {
-    type: 'vault_accessed' as const,
-    label: 'Vault #1044 Accessed',
-    description: 'License token #72508 used to decrypt data key via CDR network',
-    txHash: '0xce0dbdbfb600a07b9b7779e43c2a27a005a05ed7c9900c989c435ba6d03c5212',
-    time: 'Recently',
-  },
-]
+type ActivityEntry = {
+  id: number
+  vaultUuid: number
+  walletAddress: string
+  type: 'vault_created' | 'license_minted' | 'vault_accessed' | 'vault_shared' | 'ip_registered'
+  txHash: string | null
+  details: string | null
+  blockNumber: number | null
+  createdAt: Date
+}
 
 const typeConfig = {
   vault_created: { badge: 'accent' as const, label: 'Created' },
   license_minted: { badge: 'info' as const, label: 'Licensed' },
   vault_accessed: { badge: 'default' as const, label: 'Accessed' },
+  vault_shared: { badge: 'warning' as const, label: 'Shared' },
+  ip_registered: { badge: 'accent' as const, label: 'IP Registered' },
 }
 
 export default function ActivityPage() {
+  const { authenticated } = usePrivy()
+  const { wallets } = useWallets()
+  const [entries, setEntries] = useState<ActivityEntry[]>([])
+  const address = wallets[0]?.address
+
+  useEffect(() => {
+    if (!address) return
+    getUserActivity(address).then(setEntries).catch(() => {})
+  }, [address])
+
   return (
     <AppShell>
       <div className="space-y-8 animate-fade-in">
@@ -47,38 +50,65 @@ export default function ActivityPage() {
           </p>
         </div>
 
-        <div className="space-y-3">
-          {recentActivity.map((item, i) => {
-            const config = typeConfig[item.type]
-            return (
-              <Card key={i} className="p-4">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active mt-0.5">
-                    <ActivityIcon className="h-4 w-4 text-muted" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-foreground">{item.label}</span>
-                      <Badge variant={config.badge} dot>{config.label}</Badge>
+        {entries.length === 0 ? (
+          <Card className="flex flex-col items-center justify-center py-16 text-center border-dashed">
+            <ActivityIcon className="h-12 w-12 text-subtle mb-4" />
+            <p className="text-muted text-sm">No activity yet</p>
+            <p className="text-subtle text-xs mt-1">Create a vault to see your on-chain history</p>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {entries.map((item) => {
+              const config = typeConfig[item.type]
+              const details = item.details ? JSON.parse(item.details) : {}
+              return (
+                <Card key={item.id} className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active mt-0.5">
+                      <ActivityIcon className="h-4 w-4 text-muted" />
                     </div>
-                    <p className="text-xs text-muted leading-relaxed">{item.description}</p>
-                    <div className="flex items-center gap-3 pt-1">
-                      <a
-                        href={`${STORY_CHAIN.explorer}/tx/${item.txHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-[11px] text-subtle hover:text-accent transition-colors truncate max-w-[240px]"
-                      >
-                        {item.txHash}
-                      </a>
-                      <span className="text-[11px] text-subtle">{item.time}</span>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-foreground">
+                          {item.type === 'vault_created' && `Vault #${item.vaultUuid} Created`}
+                          {item.type === 'license_minted' && `License Minted for Vault #${item.vaultUuid}`}
+                          {item.type === 'vault_accessed' && `Vault #${item.vaultUuid} Accessed`}
+                          {item.type === 'vault_shared' && `Vault #${item.vaultUuid} Shared`}
+                          {item.type === 'ip_registered' && `IP Registered for Vault #${item.vaultUuid}`}
+                        </span>
+                        <Badge variant={config.badge} dot>{config.label}</Badge>
+                      </div>
+                      {details && (
+                        <p className="text-xs text-muted leading-relaxed">
+                          {details.name && `Name: ${details.name}`}
+                          {details.licenseTokenId && ` · Token #${details.licenseTokenId}`}
+                          {details.ipId && ` · IP ${details.ipId.slice(0, 10)}...`}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 pt-1">
+                        {item.txHash && (
+                          <a
+                            href={`${STORY_CHAIN.explorer}/tx/${item.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[11px] text-subtle hover:text-accent transition-colors truncate max-w-[240px]"
+                          >
+                            {item.txHash}
+                          </a>
+                        )}
+                        <span className="text-[11px] text-subtle">
+                          {item.createdAt instanceof Date
+                            ? item.createdAt.toLocaleDateString()
+                            : new Date(item.createdAt * 1000).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
     </AppShell>
   )

@@ -1,23 +1,34 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { toHex } from 'viem';
+import { toHex, type Address } from 'viem';
 import { useCdrClient } from './useCdrClient';
 import {
   CDR_CONDITIONS,
   encodeLicenseReadCondition,
   encodeWriteConditionData,
 } from '@/lib/cdr';
+import {
+  encryptDataKeyForWallet,
+  type EncryptedDataKeyV2,
+  type SignTypedDataFn,
+  EIP712_DOMAIN,
+  EIP712_TYPES,
+  EIP712_PRIMARY_TYPE,
+  buildEIP712Message,
+} from '@/lib/crypto/datakey-encryption';
 
 interface UploadVaultParams {
   ipId: `0x${string}`;
   writerAddress: `0x${string}`;
+  signTypedDataFn: SignTypedDataFn;
 }
 
 interface UploadVaultResult {
   success: boolean;
   uuid?: number;
   dataKeyHex?: `0x${string}`;
+  encryptedDataKey?: EncryptedDataKeyV2;
   txHashes?: {
     allocate?: `0x${string}`;
     write?: `0x${string}`;
@@ -30,7 +41,7 @@ export function useCdrEncrypt() {
   const [isEncrypting, setIsEncrypting] = useState(false);
 
   const uploadVault = useCallback(
-    async ({ ipId, writerAddress }: UploadVaultParams): Promise<UploadVaultResult> => {
+    async ({ ipId, writerAddress, signTypedDataFn }: UploadVaultParams): Promise<UploadVaultResult> => {
       if (!client || !isReady) {
         return { success: false, error: 'CDR client not ready' };
       }
@@ -57,10 +68,17 @@ export function useCdrEncrypt() {
           accessAuxData: '0x',
         });
 
+        const encryptedDataKey = await encryptDataKeyForWallet(
+          dataKey,
+          writerAddress,
+          signTypedDataFn,
+        );
+
         return {
           success: true,
           uuid: result.uuid,
           dataKeyHex,
+          encryptedDataKey,
           txHashes: result.txHashes,
         };
       } catch (err) {
@@ -70,11 +88,25 @@ export function useCdrEncrypt() {
         setIsEncrypting(false);
       }
     },
-    [client, isReady]
+    [client, isReady],
   );
 
   return {
     uploadVault,
     isEncrypting,
   };
+}
+
+export function createWalletSignTypedData(
+  walletClient: { signTypedData: (args: any) => Promise<`0x${string}`> },
+  _walletAddress: string,
+): SignTypedDataFn {
+  return async ({ domain, types, primaryType, message }) => {
+    return walletClient.signTypedData({
+      domain,
+      types,
+      primaryType,
+      message,
+    })
+  }
 }

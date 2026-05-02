@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
 import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon } from '@/components/Icons'
+import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
 import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData } from '@/lib/cdr'
@@ -15,8 +16,16 @@ import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
 import { custom as viemCustom, Account } from 'viem'
 import { StoryClient, StoryConfig, PILFlavor } from '@story-protocol/core-sdk'
+import { createVaultRecord } from '@/db/queries'
+import {
+  encryptDataKeyForWallet,
+  EIP712_DOMAIN,
+  EIP712_TYPES,
+  EIP712_PRIMARY_TYPE,
+  buildEIP712Message,
+} from '@/lib/crypto/datakey-encryption'
 
-type Step = 'idle' | 'register' | 'mint' | 'upload' | 'done'
+type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_key' | 'persist' | 'done'
 
 interface StepResult {
   ipId?: Address
@@ -24,6 +33,7 @@ interface StepResult {
   licenseTokenId?: bigint
   vaultUuid?: number
   txHashes?: string[]
+  dbPersisted?: boolean
 }
 
 export default function CreateVaultPage() {
@@ -133,7 +143,60 @@ export default function CreateVaultPage() {
       txHashes.push(uploadResult.txHashes.allocate)
       txHashes.push(uploadResult.txHashes.write)
 
+      setStep('encrypt_key')
+      addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
+
+      const signTypedDataFn = async (params: {
+        domain: typeof EIP712_DOMAIN
+        types: typeof EIP712_TYPES
+        primaryType: 'EncryptDataKey'
+        message: { wallet: Address; purpose: string; version: bigint }
+      }) => {
+        return clients.walletClient.signTypedData({
+          domain: params.domain,
+          types: params.types,
+          primaryType: params.primaryType,
+          message: params.message,
+        })
+      }
+
+      const encryptedDataKey = await encryptDataKeyForWallet(
+        dataKey,
+        clients.address,
+        signTypedDataFn,
+      )
+
       setResult(prev => ({ ...prev, vaultUuid: uploadResult.uuid, txHashes }))
+
+      setStep('persist')
+      addToast({ title: 'Saving vault record...', variant: 'default' })
+
+      try {
+        await createVaultRecord({
+          uuid: uploadResult.uuid,
+          ownerAddress: clients.address,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          ipId,
+          licenseTermsId,
+          licenseTokenId: licenseTokenId?.toString(),
+          encryptedDataKey: JSON.stringify(encryptedDataKey),
+          dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
+          allocateTxHash: uploadResult.txHashes.allocate,
+          writeTxHash: uploadResult.txHashes.write,
+          registerTxHash: ipResult.txHash!,
+          mintTxHash: licResult.txHash!,
+        })
+        setResult(prev => ({ ...prev, dbPersisted: true }))
+      } catch (dbErr) {
+        setResult(prev => ({ ...prev, dbPersisted: false }))
+        addToast({
+          title: 'DB save failed',
+          description: 'Vault is on-chain but local record failed. You can retry from dashboard.',
+          variant: 'warning',
+        })
+      }
+
       setStep('done')
       addToast({ title: 'Vault created!', description: `UUID: ${uploadResult.uuid}`, variant: 'accent' })
     } catch (err) {
@@ -147,17 +210,14 @@ export default function CreateVaultPage() {
     { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
     { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
     { key: 'upload' as Step, label: 'Encrypt & Upload CDR', done: !!result.vaultUuid },
+    { key: 'encrypt_key' as Step, label: 'Encrypt Data Key', done: !!result.vaultUuid },
+    { key: 'persist' as Step, label: 'Save Vault Record', done: result.dbPersisted !== undefined },
   ]
 
   if (!authenticated) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-          <LockIcon className="h-12 w-12 text-subtle mb-4" />
-          <p className="text-lg font-medium text-foreground mb-2">Connect Wallet to Create Vaults</p>
-          <p className="text-sm text-muted mb-6">You need a wallet to register IP assets and encrypt content</p>
-          <Button variant="primary" onClick={login}>Connect Wallet</Button>
-        </div>
+        <AuthGuard>{null}</AuthGuard>
       </AppShell>
     )
   }
@@ -201,13 +261,12 @@ export default function CreateVaultPage() {
               <ShieldIcon className="h-5 w-5 text-accent" />
               <CardTitle>On-Chain Protection Flow</CardTitle>
             </div>
-            <CardDescription>Three transactions will be executed in sequence</CardDescription>
+            <CardDescription>Transactions + data key encryption executed in sequence</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {stepItems.map((item) => {
                 const isActive = step === item.key
-                const isPending = step === 'idle' || stepItems.indexOf(item) > stepItems.findIndex(s => s.key === step)
                 return (
                   <div
                     key={item.key}
@@ -271,12 +330,55 @@ export default function CreateVaultPage() {
               <DataRow label="IP Asset" value={result.ipId || ''} mono />
               <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
               <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
-            </CardContent>
-            <CardFooter>
-              <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
-                Copy Details
-              </Button>
-            </CardFooter>
+                <DataRow
+                  label="Data Key"
+                  value={result.dbPersisted ? 'Encrypted & saved' : 'Encryption failed — retry below'}
+                  mono={false}
+                />
+              </CardContent>
+              {!result.dbPersisted && (
+                <CardFooter>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/vaults/retry-persist', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            uuid: result.vaultUuid,
+                            ownerAddress: wallets[0]?.address,
+                            name: name.trim(),
+                            description: description.trim() || undefined,
+                            ipId: result.ipId,
+                            licenseTermsId: result.licenseTermsId,
+                            licenseTokenId: result.licenseTokenId?.toString(),
+                          }),
+                        })
+                        const data = await res.json()
+                        if (data.ok) {
+                          setResult(prev => ({ ...prev, dbPersisted: true }))
+                          addToast({ title: 'Vault record saved!', variant: 'accent' })
+                        } else {
+                          addToast({ title: 'Retry failed', description: data.error, variant: 'destructive' })
+                        }
+                      } catch {
+                        addToast({ title: 'Retry failed', description: 'Network error', variant: 'destructive' })
+                      }
+                    }}
+                  >
+                    Retry Save
+                  </Button>
+                </CardFooter>
+              )}
+              {result.dbPersisted && (
+                <CardFooter>
+                  <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
+                    Copy Details
+                  </Button>
+                </CardFooter>
+              )}
           </Card>
         )}
       </div>
