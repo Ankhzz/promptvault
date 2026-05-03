@@ -166,3 +166,21 @@ export const EyeIcon = forwardRef<SVGSVGElement, IconProps>(
   ),
 )
 EyeIcon.displayName = 'EyeIcon'
+
+export const MenuIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 12h18M3 6h18M3 18h18" />
+    </svg>
+  ),
+)
+MenuIcon.displayName = 'MenuIcon'
+
+export const XIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  ),
+)
+XIcon.displayName = 'XIcon'

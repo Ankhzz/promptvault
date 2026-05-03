@@ -115,6 +115,11 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-muted); }
   50% { box-shadow: 0 0 0 8px transparent; }
@@ -135,6 +140,10 @@ body {
 
 .animate-slide-in-right {
   animation: slide-in-right var(--transition-slow) both;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.2s ease-out both;
 }
 
 .animate-pulse-glow {
