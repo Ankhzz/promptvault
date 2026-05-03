@@ -210,9 +210,13 @@ async function deriveAesKeyFromPersonalSign(
 }
 
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-  const bytes = new Uint8Array(hex.length / 2) as Uint8Array<ArrayBuffer>
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex
+  if (clean.length === 0 || clean.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(clean)) {
+    throw new Error(`Invalid hex string: length=${clean.length}`)
+  }
+  const bytes = new Uint8Array(clean.length / 2) as Uint8Array<ArrayBuffer>
+  for (let i = 0; i < clean.length; i += 2) {
+    bytes[i / 2] = parseInt(clean.substr(i, 2), 16)
   }
   return bytes
 }

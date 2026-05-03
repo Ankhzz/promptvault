@@ -121,7 +121,10 @@ export default function VaultDetailPage() {
       setDecryptState('decrypting')
       addToast({ title: 'Decrypting...', variant: 'default' })
 
-      const meta: EncryptedFile = JSON.parse(vault.encryptedFileMeta)
+      const meta = safelyParseMeta(vault.encryptedFileMeta)
+      if (!meta) {
+        throw new Error('Invalid encrypted file metadata')
+      }
       const keyBytes = hexToBytes(keyHex)
       const file = await decryptFileFromBase64(meta, keyBytes)
 
@@ -328,7 +331,7 @@ export default function VaultDetailPage() {
             )}
             <DetailRow label="CDR UUID" value={String(vault.uuid)} mono />
             {vault.dataKeyEncryptionMeta && (
-              <DetailRow label="Key Encryption" value={JSON.parse(vault.dataKeyEncryptionMeta).version === 2 ? 'EIP-712 (v2)' : 'personal_sign (v1)'} />
+              <DetailRow label="Key Encryption" value={(safelyParseEncryptionMeta(vault.dataKeyEncryptionMeta))?.version === 2 ? 'EIP-712 (v2)' : 'personal_sign (v1)'} />
             )}
           </CardContent>
         </Card>
@@ -652,6 +655,14 @@ function safelyParseMeta(raw: string): EncryptedFile | null {
   }
 }
 
+function safelyParseEncryptionMeta(raw: string): { version?: number } | null {
+  try {
+    return JSON.parse(raw) as { version?: number }
+  } catch {
+    return null
+  }
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -660,6 +671,9 @@ function formatBytes(bytes: number): string {
 
 function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith('0x') ? hex.slice(2) : hex
+  if (clean.length === 0 || clean.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(clean)) {
+    throw new Error(`Invalid hex string: length=${clean.length}`)
+  }
   const bytes = new Uint8Array(clean.length / 2)
   for (let i = 0; i < clean.length; i += 2) {
     bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16)
