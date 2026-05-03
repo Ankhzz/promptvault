@@ -8,6 +8,7 @@ import { WalletStatus } from '@/components/WalletStatus'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: GridIcon },
+  { href: '/my-vaults', label: 'My Vaults', icon: VaultIcon },
   { href: '/create', label: 'Create Vault', icon: PlusIcon },
   { href: '/unlock', label: 'Unlock Vault', icon: UnlockIcon },
   { href: '/activity', label: 'Activity', icon: ActivityIcon },

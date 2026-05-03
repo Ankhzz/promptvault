@@ -47,10 +47,14 @@ function UnlockVaultContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const [vaultUuid, setVaultUuid] = useState(searchParams.get('vault') ?? '')
+  const paramVaultId = searchParams.get('vaultId') ?? searchParams.get('vault') ?? ''
+  const paramLicenseTokenId = searchParams.get('licenseTokenId') ?? ''
+  const prefilled = !!searchParams.get('vaultId') || !!searchParams.get('vault')
+
+  const [vaultUuid, setVaultUuid] = useState(paramVaultId)
   const vaultId = parseInt(vaultUuid, 10)
   const vaultIdValid = Number.isInteger(vaultId) && vaultId > 0
-  const [licenseTokenId, setLicenseTokenId] = useState('')
+  const [licenseTokenId, setLicenseTokenId] = useState(paramLicenseTokenId)
   const [state, setState] = useState<AccessState>('idle')
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
@@ -212,31 +216,35 @@ const accessVaultLocal = useCallback(async () => {
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <KeyIcon className="h-5 w-5 text-accent" />
-              <CardTitle>Vault Credentials</CardTitle>
-            </div>
-            <CardDescription>Provide the vault UUID and your license token ID</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              label="Vault UUID"
-              placeholder="e.g. 1044"
-              value={vaultUuid}
-              onChange={(e) => setVaultUuid(e.target.value)}
-              disabled={state === 'accessing'}
-              mono
-            />
-            <Input
-              label="License Token ID"
-              placeholder="e.g. 72508"
-              value={licenseTokenId}
-              onChange={(e) => setLicenseTokenId(e.target.value)}
-              disabled={state === 'accessing'}
-              mono
-            />
-          </CardContent>
+    <CardHeader>
+      <div className="flex items-center gap-2">
+        <KeyIcon className="h-5 w-5 text-accent" />
+        <CardTitle>Vault Credentials</CardTitle>
+      </div>
+      <CardDescription>
+        {prefilled
+          ? 'Credentials pre-filled from vault link'
+          : 'Provide the vault UUID and your license token ID'}
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+        <Input
+          label="Vault UUID"
+          placeholder="e.g. 1044"
+          value={vaultUuid}
+          onChange={(e) => setVaultUuid(e.target.value)}
+          disabled={state === 'accessing' || prefilled}
+          mono
+        />
+        <Input
+          label="License Token ID"
+          placeholder="e.g. 72508"
+          value={licenseTokenId}
+          onChange={(e) => setLicenseTokenId(e.target.value)}
+          disabled={state === 'accessing' || prefilled}
+          mono
+        />
+      </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button
               variant="primary"

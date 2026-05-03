@@ -110,12 +110,14 @@ export default function VaultDetailPage() {
       return
     }
 
-    const keyHex = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`)
-    if (!keyHex) {
-      addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
-      router.push(`/unlock?vault=${uuid}`)
-      return
-    }
+  const keyHex = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`)
+  if (!keyHex) {
+    addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
+    const params = new URLSearchParams({ vaultId: String(uuid) })
+    if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+    router.push(`/unlock?${params}`)
+    return
+  }
 
     isDecryptingRef.current = true
     try {
@@ -246,15 +248,19 @@ export default function VaultDetailPage() {
               <p className="mt-2 text-muted text-base">{vault.description}</p>
             )}
           </div>
-          {isOwner && !hasSessionKey && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => router.push(`/unlock?vault=${vault.uuid}`)}
-            >
-              Unlock
-            </Button>
-          )}
+  {isOwner && !hasSessionKey && (
+  <Button
+    variant="primary"
+    size="sm"
+    onClick={() => {
+      const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+      if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+      router.push(`/unlock?${params}`)
+    }}
+  >
+    Unlock
+  </Button>
+)}
         </div>
 
         <Card>
@@ -388,9 +394,16 @@ export default function VaultDetailPage() {
                       Decrypt & View
                     </Button>
                   ) : (
-                    <Button variant="secondary" size="md" onClick={() => router.push(`/unlock?vault=${uuid}`)} className="flex-1">
-                      Unlock Vault First
-                    </Button>
+  <Button variant="secondary" size="md"
+    onClick={() => {
+      const params = new URLSearchParams({ vaultId: String(uuid) })
+      if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+      router.push(`/unlock?${params}`)
+    }}
+    className="flex-1"
+  >
+    Unlock Vault First
+  </Button>
                   )}
                 </div>
               )}
