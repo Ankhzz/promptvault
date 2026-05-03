@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
@@ -23,7 +23,7 @@ import {
 } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity } from '@/db/queries'
-import { fetchFromLighthouse, decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
+import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { cn } from '@/lib/cn'
 
@@ -40,7 +40,7 @@ const statusConfig: Record<string, { badge: 'accent' | 'default' | 'warning' | '
   failed: { badge: 'destructive', label: 'Failed' },
 }
 
-type DecryptState = 'idle' | 'fetching' | 'decrypting' | 'done' | 'error'
+type DecryptState = 'idle' | 'decrypting' | 'done' | 'error'
 
 export default function VaultDetailPage() {
   const params = useParams()
@@ -62,6 +62,7 @@ export default function VaultDetailPage() {
   const [decryptedText, setDecryptedText] = useState<string | null>(null)
   const [decryptedObjectUrl, setDecryptedObjectUrl] = useState<string | null>(null)
   const [decryptError, setDecryptError] = useState<string | null>(null)
+  const isDecryptingRef = useRef(false)
 
   const address = wallets[0]?.address
   const isOwner = vault && address
@@ -96,6 +97,7 @@ export default function VaultDetailPage() {
   }, [decryptedObjectUrl])
 
   const handleDecrypt = useCallback(async () => {
+    if (isDecryptingRef.current) return
     if (!vault?.ipfsCid || !vault?.encryptedFileMeta) {
       setDecryptError('No encrypted content found for this vault')
       setDecryptState('error')
@@ -109,12 +111,8 @@ export default function VaultDetailPage() {
       return
     }
 
+    isDecryptingRef.current = true
     try {
-      setDecryptState('fetching')
-      addToast({ title: 'Fetching encrypted content...', variant: 'default' })
-
-      const encryptedBlob = await fetchFromLighthouse(vault.ipfsCid)
-
       setDecryptState('decrypting')
       addToast({ title: 'Decrypting...', variant: 'default' })
 
@@ -137,6 +135,8 @@ export default function VaultDetailPage() {
       setDecryptState('error')
       setDecryptError(err instanceof Error ? err.message : 'Decryption failed')
       addToast({ title: 'Decryption failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+    } finally {
+      isDecryptingRef.current = false
     }
   }, [vault, uuid, addToast, router])
 
@@ -371,12 +371,10 @@ export default function VaultDetailPage() {
                 </div>
               )}
 
-              {(decryptState === 'fetching' || decryptState === 'decrypting') && (
+              {decryptState === 'decrypting' && (
                 <div className="flex items-center gap-3 py-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  <span className="text-sm text-muted">
-                    {decryptState === 'fetching' ? 'Fetching from IPFS...' : 'Decrypting content...'}
-                  </span>
+                  <span className="text-sm text-muted">Decrypting content...</span>
                 </div>
               )}
 

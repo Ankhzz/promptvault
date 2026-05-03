@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createVaultRecord, vaultExists, getVaultByUuid } from '@/db/queries'
 
+// NOTE: Auth is session-bound (cookie presence + address match).
+// This is NOT cryptographic JWT verification — the privy-token signature
+// is not validated here. Full JWKS validation is tracked for FASE 3.
+function extractWalletFromCookie(request: NextRequest): string | null {
+  try {
+    const token = request.cookies.get('privy-token')?.value
+    if (!token) return null
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.wallet?.address ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { uuid } = body
 
-    if (typeof uuid !== 'number' || uuid <= 0) {
+    if (typeof uuid !== 'number' || !Number.isInteger(uuid) || uuid <= 0) {
       return NextResponse.json({ error: 'Invalid uuid' }, { status: 400 })
+    }
+
+    const sessionWallet = extractWalletFromCookie(request)
+    if (!sessionWallet || !body.ownerAddress || sessionWallet.toLowerCase() !== String(body.ownerAddress).toLowerCase()) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const existing = await vaultExists(uuid)
@@ -18,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const requiredFields = ['uuid', 'ownerAddress', 'name', 'ipId', 'licenseTermsId'] as const
     for (const field of requiredFields) {
-      if (!body[field]) {
+      if (body[field] == null) {
         return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 })
       }
     }

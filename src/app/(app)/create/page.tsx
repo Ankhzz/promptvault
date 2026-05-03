@@ -38,6 +38,12 @@ interface StepResult {
   txHashes?: string[]
   dbPersisted?: boolean
   encryptedFileMeta?: string
+  encryptedDataKeyJson?: string
+  dataKeyEncryptionMetaJson?: string
+  allocateTxHash?: string
+  writeTxHash?: string
+  registerTxHash?: string
+  mintTxHash?: string
 }
 
 export default function CreateVaultPage() {
@@ -45,9 +51,12 @@ export default function CreateVaultPage() {
   const { wallets } = useWallets()
   const { addToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isRunningRef = useRef(false)
+  const retryingRef = useRef(false)
 
   const [step, setStep] = useState<Step>('idle')
   const [result, setResult] = useState<StepResult>({})
+  const [retrying, setRetrying] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -70,6 +79,7 @@ export default function CreateVaultPage() {
   }, [wallets])
 
   const runFullFlow = useCallback(async () => {
+    if (isRunningRef.current) return
     if (!name.trim()) {
       addToast({ title: 'Name required', description: 'Give your vault a name', variant: 'warning' })
       return
@@ -80,6 +90,8 @@ export default function CreateVaultPage() {
       addToast({ title: 'Wallet not connected', variant: 'destructive' })
       return
     }
+
+    isRunningRef.current = true
 
     const txHashes: string[] = []
     let ipfsCid: string | undefined
@@ -189,7 +201,17 @@ export default function CreateVaultPage() {
         signTypedDataFn,
       )
 
-      setResult(prev => ({ ...prev, vaultUuid: uploadResult.uuid, txHashes }))
+      setResult(prev => ({
+        ...prev,
+        vaultUuid: uploadResult.uuid,
+        txHashes,
+        encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
+        dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
+        allocateTxHash: uploadResult.txHashes.allocate,
+        writeTxHash: uploadResult.txHashes.write,
+        registerTxHash: ipResult.txHash ?? undefined,
+        mintTxHash: licResult.txHash ?? undefined,
+      }))
 
       setStep('persist')
       addToast({ title: 'Saving vault record...', variant: 'default' })
@@ -223,10 +245,12 @@ export default function CreateVaultPage() {
       }
 
       setStep('done')
+      isRunningRef.current = false
       addToast({ title: 'Vault created!', description: `UUID: ${uploadResult.uuid}`, variant: 'accent' })
     } catch (err) {
       const parsed = parseTxError(err)
       setStep('idle')
+      isRunningRef.current = false
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
   }, [name, getClients, addToast, selectedFile])
@@ -427,38 +451,51 @@ export default function CreateVaultPage() {
             </CardContent>
             {!result.dbPersisted && (
               <CardFooter>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/vaults/retry-persist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          uuid: result.vaultUuid,
-                          ownerAddress: wallets[0]?.address,
-                          name: name.trim(),
-                          description: description.trim() || undefined,
-                          ipId: result.ipId,
-                          licenseTermsId: result.licenseTermsId,
-                          licenseTokenId: result.licenseTokenId?.toString(),
-                          ipfsCid: result.ipfsCid,
-                          encryptedDataKey: undefined,
-                          dataKeyEncryptionMeta: undefined,
-                        }),
-                      })
-                      const data = await res.json()
-                      if (data.ok) {
-                        setResult(prev => ({ ...prev, dbPersisted: true }))
-                        addToast({ title: 'Vault record saved!', variant: 'accent' })
-                      } else {
-                        addToast({ title: 'Retry failed', description: data.error, variant: 'destructive' })
-                      }
-                    } catch {
-                      addToast({ title: 'Retry failed', description: 'Network error', variant: 'destructive' })
-                    }
-                  }}
+      <Button
+        variant="secondary"
+        size="sm"
+        loading={retrying}
+        disabled={retrying}
+        onClick={async () => {
+          if (retryingRef.current) return
+          retryingRef.current = true
+          setRetrying(true)
+          try {
+            const res = await fetch('/api/vaults/retry-persist', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                uuid: result.vaultUuid,
+                ownerAddress: wallets[0]?.address,
+                name: name.trim(),
+                description: description.trim() || undefined,
+                ipId: result.ipId,
+                licenseTermsId: result.licenseTermsId,
+                licenseTokenId: result.licenseTokenId?.toString(),
+                ipfsCid: result.ipfsCid,
+                encryptedFileMeta: result.encryptedFileMeta,
+                encryptedDataKey: result.encryptedDataKeyJson,
+                dataKeyEncryptionMeta: result.dataKeyEncryptionMetaJson,
+                allocateTxHash: result.allocateTxHash,
+                writeTxHash: result.writeTxHash,
+                registerTxHash: result.registerTxHash,
+                mintTxHash: result.mintTxHash,
+              }),
+            })
+            const data = await res.json()
+            if (data.ok) {
+              setResult(prev => ({ ...prev, dbPersisted: true }))
+              addToast({ title: 'Vault record saved!', variant: 'accent' })
+            } else {
+              addToast({ title: 'Retry failed', description: data.error, variant: 'destructive' })
+            }
+          } catch {
+            addToast({ title: 'Retry failed', description: 'Network error', variant: 'destructive' })
+          } finally {
+            retryingRef.current = false
+            setRetrying(false)
+          }
+        }}
                 >
                   Retry Save
                 </Button>

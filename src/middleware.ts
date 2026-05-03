@@ -39,7 +39,7 @@ function getCsp(host: string): string {
     "default-src 'self'",
     "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
     "font-src 'self' https://api.fontshare.com https://cdn.fontshare.com",
-    "img-src 'self' data: https:",
+    "img-src 'self' data: blob: https:",
     "frame-src https://widget.privy.io https://auth.privy.io",
     "object-src 'none'",
     "base-uri 'self'",
@@ -56,6 +56,9 @@ function getCsp(host: string): string {
     'https://explorer-api.walletconnect.com',
     'wss://relay.walletconnect.com',
     'wss://www.walletlink.org',
+    'https://gateway.lighthouse.storage',
+    'https://api.lighthouse.storage',
+    'https://node.lighthouse.storage',
   ]
 
   if (isDev) {

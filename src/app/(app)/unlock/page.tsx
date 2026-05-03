@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, Suspense } from 'react'
+import { useState, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
@@ -53,19 +53,31 @@ function UnlockVaultContent() {
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
   const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
+  const isAccessingRef = useRef(false)
 
   const storeKeyAndFinish = useCallback((keyHex: string, uuid: number, method: UnlockMethod, txHash?: string) => {
+    let keyStored = false
     try {
       sessionStorage.setItem(`${DATAKEY_SESSION_PREFIX}${uuid}`, keyHex)
+      keyStored = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`) === keyHex
     } catch {}
+
+    if (!keyStored) {
+      addToast({
+        title: 'Session storage unavailable',
+        description: 'Copy your data key now — it won\'t persist after navigation. Try a different browser or disable private browsing.',
+        variant: 'warning',
+      })
+    }
 
     setRecoveredKey(keyHex)
     setReadTxHash(txHash ?? null)
     setUnlockMethod(method)
     setState('done')
-  }, [])
+  }, [addToast])
 
   const accessVaultCDR = useCallback(async () => {
+    if (isAccessingRef.current) return
     if (!vaultUuid || !licenseTokenId) {
       addToast({ title: 'Missing fields', description: 'Enter both Vault UUID and License Token ID', variant: 'warning' })
       return
@@ -77,6 +89,7 @@ function UnlockVaultContent() {
       return
     }
 
+    isAccessingRef.current = true
     try {
       setState('accessing')
       addToast({ title: 'Accessing vault...', description: 'Collecting decryption partials (may take 30-90s)', variant: 'default' })
@@ -113,10 +126,13 @@ function UnlockVaultContent() {
       const parsed = parseTxError(err)
       setState('idle')
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+    } finally {
+      isAccessingRef.current = false
     }
   }, [vaultUuid, licenseTokenId, wallets, addToast, storeKeyAndFinish])
 
   const accessVaultLocal = useCallback(async () => {
+    if (isAccessingRef.current) return
     if (!vaultUuid) {
       addToast({ title: 'Missing Vault UUID', variant: 'warning' })
       return
@@ -128,6 +144,7 @@ function UnlockVaultContent() {
       return
     }
 
+    isAccessingRef.current = true
     try {
       setState('accessing')
       addToast({ title: 'Recovering data key locally...', description: 'Using your encrypted data key backup', variant: 'default' })
@@ -169,6 +186,8 @@ function UnlockVaultContent() {
       const parsed = parseTxError(err)
       setState('idle')
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+    } finally {
+      isAccessingRef.current = false
     }
   }, [vaultUuid, wallets, addToast, storeKeyAndFinish])
 
