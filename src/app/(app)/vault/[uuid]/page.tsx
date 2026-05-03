@@ -69,9 +69,7 @@ export default function VaultDetailPage() {
     ? vault.ownerAddress.toLowerCase() === address.toLowerCase()
     : false
 
-  const hasSessionKey = typeof window !== 'undefined'
-    ? !!sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`)
-    : false
+  const [hasSessionKey, setHasSessionKey] = useState(false)
 
   useEffect(() => {
     if (!uuid || Number.isNaN(uuid)) {
@@ -91,6 +89,10 @@ export default function VaultDetailPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [uuid])
+
+  useEffect(() => {
+    setHasSessionKey(!!sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`))
   }, [uuid])
 
   useEffect(() => {
