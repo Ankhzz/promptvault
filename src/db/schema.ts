@@ -24,6 +24,8 @@ export const vaults = sqliteTable('vaults', {
   registerTxHash: text('register_tx_hash'),
   mintTxHash: text('mint_tx_hash'),
   status: text('status', { enum: ['creating', 'active', 'accessed', 'failed'] }).notNull().$defaultFn(() => 'creating'),
+  price: integer('price'),
+  isForSale: integer('is_for_sale', { mode: 'boolean' }).notNull().default(false).$defaultFn(() => false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => [
@@ -46,6 +48,17 @@ export const activity = sqliteTable('activity', {
   index('idx_activity_vault').on(table.vaultUuid),
   index('idx_activity_type').on(table.type),
   index('idx_activity_created').on(table.createdAt),
+])
+
+export const purchases = sqliteTable('purchases', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  vaultUuid: integer('vault_uuid').notNull().references(() => vaults.uuid),
+  buyerAddress: text('buyer_address').notNull().references(() => users.walletAddress),
+  paid: integer('paid', { mode: 'boolean' }).notNull().default(true).$defaultFn(() => true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex('idx_purchases_vault_buyer').on(table.vaultUuid, table.buyerAddress),
+  index('idx_purchases_buyer').on(table.buyerAddress),
 ])
 
 export const licenseTokens = sqliteTable('license_tokens', {

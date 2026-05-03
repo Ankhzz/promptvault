@@ -184,3 +184,14 @@ export const XIcon = forwardRef<SVGSVGElement, IconProps>(
   ),
 )
 XIcon.displayName = 'XIcon'
+
+export const PricetagIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 2l9 9-9 9-9-9 9-9z" />
+      <path d="M9 12a1 1 0 102 0 1 1 0 00-2 0" />
+      <path d="M15 6l-9 9" />
+    </svg>
+  ),
+)
+PricetagIcon.displayName = 'PricetagIcon'

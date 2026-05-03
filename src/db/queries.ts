@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/db'
-import { users, vaults, activity, licenseTokens } from '@/db/schema'
+import { users, vaults, activity, licenseTokens, purchases } from '@/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 
 export async function getOrCreateUser(walletAddress: string) {
@@ -149,4 +149,43 @@ export async function getUserStats(walletAddress: string) {
     licenseCount: Number(licenseCount?.value ?? 0),
     accessCount: Number(accessCount?.value ?? 0),
   }
+}
+
+export async function setVaultPrice(uuid: number, price: number | null) {
+  await db.update(vaults)
+    .set({ price, updatedAt: new Date() })
+    .where(eq(vaults.uuid, uuid))
+    .run()
+}
+
+export async function setVaultForSale(uuid: number, isForSale: boolean) {
+  const updates: Partial<typeof vaults.$inferInsert> = { isForSale, updatedAt: new Date() }
+  if (!isForSale) updates.price = null
+  await db.update(vaults)
+    .set(updates)
+    .where(eq(vaults.uuid, uuid))
+    .run()
+}
+
+export async function purchaseVault(vaultUuid: number, buyerAddress: string) {
+  await getOrCreateUser(buyerAddress)
+  const existing = await db.select().from(purchases)
+    .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
+    .get()
+  if (existing) return existing
+  return db.insert(purchases).values({ vaultUuid, buyerAddress }).returning().get()
+}
+
+export async function getPurchase(vaultUuid: number, buyerAddress: string) {
+  return db.select().from(purchases)
+    .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
+    .get()
+}
+
+export async function getPurchasesForBuyer(buyerAddress: string) {
+  return db.select().from(purchases)
+    .where(eq(purchases.buyerAddress, buyerAddress))
+    .orderBy(desc(purchases.createdAt))
+    .limit(100)
+    .all()
 }

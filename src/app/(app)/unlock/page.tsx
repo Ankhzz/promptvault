@@ -15,7 +15,7 @@ import { STORY_CHAIN, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
 import { CDR_CONDITIONS, encodeAccessAuxData } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
-import { recordVaultAccess, getVaultEncryptedDataKey } from '@/db/queries'
+import { recordVaultAccess, getVaultEncryptedDataKey, getVaultByUuid, getPurchase } from '@/db/queries'
 import {
   decryptDataKeyForWallet,
   EIP712_DOMAIN,
@@ -84,19 +84,35 @@ function UnlockVaultContent() {
 
   const accessVaultCDR = useCallback(async () => {
     if (isAccessingRef.current) return
-  if (!vaultIdValid || !licenseTokenId) {
-    addToast({ title: 'Missing fields', description: 'Enter a valid Vault UUID and License Token ID', variant: 'warning' })
-      return
-    }
-
-    const clients = await getWalletClients(wallets)
-    if (!clients) {
-      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+    if (!vaultIdValid || !licenseTokenId) {
+      addToast({ title: 'Missing fields', description: 'Enter a valid Vault UUID and License Token ID', variant: 'warning' })
       return
     }
 
     isAccessingRef.current = true
     try {
+      const vaultData = await getVaultByUuid(vaultId)
+      if (vaultData?.isForSale) {
+        const walletAddr = wallets[0]?.address
+        if (walletAddr && vaultData.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
+          const purchase = await getPurchase(vaultId, walletAddr)
+          if (!purchase?.paid) {
+            setState('idle')
+            isAccessingRef.current = false
+            addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
+            router.push(`/vault/${vaultId}`)
+            return
+          }
+        }
+      }
+
+      const clients = await getWalletClients(wallets)
+      if (!clients) {
+        isAccessingRef.current = false
+        addToast({ title: 'Wallet not connected', variant: 'destructive' })
+        return
+      }
+
       setState('accessing')
       addToast({ title: 'Accessing vault...', description: 'Collecting decryption partials (may take 30-90s)', variant: 'default' })
 
@@ -135,23 +151,39 @@ function UnlockVaultContent() {
     } finally {
       isAccessingRef.current = false
     }
-  }, [vaultId, licenseTokenId, wallets, addToast, storeKeyAndFinish])
+  }, [vaultId, licenseTokenId, wallets, addToast, storeKeyAndFinish, router])
 
-const accessVaultLocal = useCallback(async () => {
-  if (isAccessingRef.current) return
-  if (!vaultIdValid) {
-    addToast({ title: 'Invalid Vault UUID', variant: 'warning' })
-      return
-    }
-
-    const clients = await getWalletClients(wallets)
-    if (!clients) {
-      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+  const accessVaultLocal = useCallback(async () => {
+    if (isAccessingRef.current) return
+    if (!vaultIdValid) {
+      addToast({ title: 'Invalid Vault UUID', variant: 'warning' })
       return
     }
 
     isAccessingRef.current = true
     try {
+      const vaultCheck = await getVaultByUuid(vaultId)
+      if (vaultCheck?.isForSale) {
+        const walletAddr = wallets[0]?.address
+        if (walletAddr && vaultCheck.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
+          const purchase = await getPurchase(vaultId, walletAddr)
+          if (!purchase?.paid) {
+            setState('idle')
+            isAccessingRef.current = false
+            addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
+            router.push(`/vault/${vaultId}`)
+            return
+          }
+        }
+      }
+
+      const clients = await getWalletClients(wallets)
+      if (!clients) {
+        isAccessingRef.current = false
+        addToast({ title: 'Wallet not connected', variant: 'destructive' })
+        return
+      }
+
       setState('accessing')
       addToast({ title: 'Recovering data key locally...', description: 'Using your encrypted data key backup', variant: 'default' })
 
@@ -195,7 +227,7 @@ const accessVaultLocal = useCallback(async () => {
     } finally {
       isAccessingRef.current = false
     }
-  }, [vaultId, wallets, addToast, storeKeyAndFinish])
+  }, [vaultId, wallets, addToast, storeKeyAndFinish, router])
 
   if (!authenticated) {
     return (

@@ -20,9 +20,10 @@ import {
   CheckIcon,
   DownloadIcon,
   EyeIcon,
+  PricetagIcon,
 } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
-import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity } from '@/db/queries'
+import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault } from '@/db/queries'
 import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { cn } from '@/lib/cn'
@@ -65,10 +66,16 @@ export default function VaultDetailPage() {
   const [decryptError, setDecryptError] = useState<string | null>(null)
   const isDecryptingRef = useRef(false)
 
+  const [hasPurchased, setHasPurchased] = useState(false)
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false)
+  const [purchasing, setPurchasing] = useState(false)
+
   const address = wallets[0]?.address
   const isOwner = vault && address
     ? vault.ownerAddress.toLowerCase() === address.toLowerCase()
     : false
+
+  const needsPurchase = !!vault?.isForSale && !isOwner && !hasPurchased
 
   const [hasSessionKey, setHasSessionKey] = useState(false)
 
@@ -87,10 +94,13 @@ export default function VaultDetailPage() {
         setVault(v)
         setLicenses(l)
         setActivityEntries(a)
+        if (v?.isForSale && address && v.ownerAddress.toLowerCase() !== address.toLowerCase()) {
+          getPurchase(uuid, address).then(p => { setHasPurchased(!!p?.paid) })
+        }
       })
       .catch(() => { addToast({ title: 'Failed to load vault data', variant: 'destructive' }) })
       .finally(() => setLoading(false))
-  }, [uuid])
+  }, [uuid, address])
 
   useEffect(() => {
     setHasSessionKey(!!sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`))
@@ -112,6 +122,10 @@ export default function VaultDetailPage() {
 
   const keyHex = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`)
   if (!keyHex) {
+    if (needsPurchase) {
+      addToast({ title: 'Purchase required', description: 'Buy this vault first to access content', variant: 'warning' })
+      return
+    }
     addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
     const params = new URLSearchParams({ vaultId: String(uuid) })
     if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
@@ -149,7 +163,7 @@ export default function VaultDetailPage() {
     } finally {
       isDecryptingRef.current = false
     }
-  }, [vault, uuid, addToast, router])
+  }, [vault, uuid, addToast, router, needsPurchase])
 
   const handleDownload = useCallback(() => {
     if (!decryptedFile) return
@@ -160,6 +174,21 @@ export default function VaultDetailPage() {
     a.click()
     if (!decryptedObjectUrl) URL.revokeObjectURL(url)
   }, [decryptedFile, decryptedObjectUrl])
+
+  const handlePurchase = useCallback(async () => {
+    if (!vault || !address) return
+    setPurchasing(true)
+    try {
+      await purchaseVault(vault.uuid, address)
+      setHasPurchased(true)
+      setConfirmingPurchase(false)
+      addToast({ title: 'Purchase successful!', description: 'You can now unlock this vault', variant: 'accent' })
+    } catch {
+      addToast({ title: 'Purchase failed', variant: 'destructive' })
+    } finally {
+      setPurchasing(false)
+    }
+  }, [vault, address, addToast])
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
@@ -243,6 +272,12 @@ export default function VaultDetailPage() {
                 {vault.name}
               </h1>
               <Badge variant={status.badge} dot>{status.label}</Badge>
+          {vault.isForSale && !isOwner && (
+            <Badge variant="accent" dot>
+              <PricetagIcon className="h-3 w-3 mr-0.5" />
+              For Sale · {formatPrice(vault.price)}
+            </Badge>
+          )}
             </div>
             {vault.description && (
               <p className="mt-2 text-muted text-base">{vault.description}</p>
@@ -350,13 +385,15 @@ export default function VaultDetailPage() {
                 <FileIcon className="h-5 w-5 text-accent" />
                 <CardTitle>Encrypted Content</CardTitle>
               </div>
-              <CardDescription>
-                {decryptState === 'done'
-                  ? 'Content decrypted successfully'
-                  : hasSessionKey
-                    ? 'Ready to decrypt — data key available in session'
-                    : 'Unlock the vault first to decrypt content'}
-              </CardDescription>
+        <CardDescription>
+          {needsPurchase
+            ? 'This vault is for sale — purchase required to access content'
+            : decryptState === 'done'
+            ? 'Content decrypted successfully'
+            : hasSessionKey
+            ? 'Ready to decrypt — data key available in session'
+            : 'Unlock the vault first to decrypt content'}
+        </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {(() => {
@@ -386,27 +423,61 @@ export default function VaultDetailPage() {
                 return null
               })()}
 
-              {decryptState === 'idle' && (
-                <div className="flex gap-3">
-                  {hasSessionKey ? (
-                    <Button variant="primary" size="md" onClick={handleDecrypt} className="flex-1">
-                      <EyeIcon className="h-4 w-4 mr-2" />
-                      Decrypt & View
-                    </Button>
-                  ) : (
-  <Button variant="secondary" size="md"
-    onClick={() => {
-      const params = new URLSearchParams({ vaultId: String(uuid) })
-      if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
-      router.push(`/unlock?${params}`)
-    }}
-    className="flex-1"
-  >
-    Unlock Vault First
-  </Button>
-                  )}
-                </div>
-              )}
+{decryptState === 'idle' && (
+  <div className="flex gap-3">
+    {needsPurchase ? (
+      confirmingPurchase ? (
+        <div className="flex-1 space-y-3 rounded-lg border border-border bg-surface px-4 py-3">
+          <p className="text-sm text-muted">
+            Confirm purchase: <span className="font-medium text-foreground">{formatPrice(vault.price)}</span>
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              loading={purchasing}
+              disabled={purchasing}
+              onClick={handlePurchase}
+            >
+              Confirm Purchase
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={purchasing}
+              onClick={() => setConfirmingPurchase(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <Button variant="primary" size="md" onClick={() => setConfirmingPurchase(true)} className="flex-1">
+            <PricetagIcon className="h-4 w-4 mr-2" />
+            Buy & Unlock · {formatPrice(vault.price)}
+          </Button>
+        </>
+      )
+    ) : hasSessionKey ? (
+      <Button variant="primary" size="md" onClick={handleDecrypt} className="flex-1">
+        <EyeIcon className="h-4 w-4 mr-2" />
+        Decrypt & View
+      </Button>
+    ) : (
+      <Button variant="secondary" size="md"
+        onClick={() => {
+          const params = new URLSearchParams({ vaultId: String(uuid) })
+          if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+          router.push(`/unlock?${params}`)
+        }}
+        className="flex-1"
+      >
+        Unlock Vault First
+      </Button>
+    )}
+  </div>
+)}
 
               {decryptState === 'decrypting' && (
                 <div className="flex items-center gap-3 py-2">
@@ -681,6 +752,11 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatPrice(cents: number | null): string {
+  if (cents == null) return ''
+  return `$${(cents / 100).toFixed(2)}`
 }
 
 function hexToBytes(hex: string): Uint8Array {
