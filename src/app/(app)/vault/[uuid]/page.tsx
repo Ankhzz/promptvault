@@ -74,7 +74,10 @@ export default function VaultDetailPage() {
     : false
 
   useEffect(() => {
-    if (!uuid || Number.isNaN(uuid)) return
+    if (!uuid || Number.isNaN(uuid)) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     Promise.all([
       getVaultByUuid(uuid),
@@ -160,6 +163,21 @@ export default function VaultDetailPage() {
     return (
       <AppShell>
         <AuthGuard>{null}</AuthGuard>
+      </AppShell>
+    )
+  }
+
+  if (Number.isNaN(uuid)) {
+    return (
+      <AppShell>
+        <div className="max-w-3xl mx-auto animate-fade-in">
+          <Card className="flex flex-col items-center justify-center py-16 text-center border-dashed">
+            <VaultIcon className="h-12 w-12 text-subtle mb-4" />
+            <p className="text-muted text-sm">Invalid vault ID</p>
+            <p className="text-subtle text-xs mt-1 mb-6">The URL does not contain a valid vault UUID</p>
+            <Button variant="secondary" size="sm" onClick={() => router.push('/')}>Back to Dashboard</Button>
+          </Card>
+        </div>
       </AppShell>
     )
   }
