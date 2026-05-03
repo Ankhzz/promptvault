@@ -49,7 +49,8 @@ export default function VaultDetailPage() {
   const { wallets } = useWallets()
   const { addToast } = useToast()
 
-  const uuid = Number(params.uuid)
+  const parsedUuid = parseInt(String(params.uuid), 10)
+  const uuid = Number.isInteger(parsedUuid) && parsedUuid > 0 ? parsedUuid : NaN
 
   const [vault, setVault] = useState<VaultData>(undefined)
   const [licenses, setLicenses] = useState<LicenseTokenData>([])
@@ -179,7 +180,7 @@ export default function VaultDetailPage() {
           <Card className="flex flex-col items-center justify-center py-16 text-center border-dashed">
             <VaultIcon className="h-12 w-12 text-subtle mb-4" />
             <p className="text-muted text-sm">Invalid vault ID</p>
-            <p className="text-subtle text-xs mt-1 mb-6">The URL does not contain a valid vault UUID</p>
+            <p className="text-subtle text-xs mt-1 mb-6">The URL must contain a positive integer vault ID</p>
             <Button variant="secondary" size="sm" onClick={() => router.push('/')}>Back to Dashboard</Button>
           </Card>
         </div>

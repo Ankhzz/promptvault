@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
-    "@lighthouse-web3/sdk": "^0.3.0",
+    "@lighthouse-web3/sdk": "^0.4.5",
     "@privy-io/react-auth": "^1.78.0",
     "@privy-io/wagmi": "^0.2.0",
     "@story-protocol/core-sdk": "^1.4.4",

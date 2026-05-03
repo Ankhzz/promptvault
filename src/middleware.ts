@@ -58,7 +58,7 @@ function getCsp(host: string): string {
     'wss://www.walletlink.org',
     'https://gateway.lighthouse.storage',
     'https://api.lighthouse.storage',
-    'https://node.lighthouse.storage',
+    'https://upload.lighthouse.storage',
   ]
 
   if (isDev) {
