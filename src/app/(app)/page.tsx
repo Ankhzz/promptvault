@@ -55,6 +55,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!address) {
+      setStats(null)
+      setVaultList([])
       setLoading(false)
       return
     }

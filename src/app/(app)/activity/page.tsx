@@ -36,7 +36,10 @@ export default function ActivityPage() {
   const address = wallets[0]?.address
 
   useEffect(() => {
-    if (!address) return
+    if (!address) {
+      setEntries([])
+      return
+    }
     getUserActivity(address).then(setEntries).catch(() => {})
   }, [address])
 
