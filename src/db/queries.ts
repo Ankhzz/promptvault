@@ -2,7 +2,7 @@
 
 import { db } from '@/db'
 import { users, vaults, activity, licenseTokens } from '@/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 
 export async function getOrCreateUser(walletAddress: string) {
   const existing = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).get()
@@ -81,6 +81,7 @@ export async function getUserVaults(walletAddress: string) {
   return db.select().from(vaults)
     .where(eq(vaults.ownerAddress, walletAddress))
     .orderBy(desc(vaults.createdAt))
+    .limit(100)
     .all()
 }
 
@@ -128,19 +129,24 @@ export async function getVaultEncryptedDataKey(uuid: number) {
 }
 
 export async function getUserStats(walletAddress: string) {
-  const userVaults = await db.select().from(vaults)
-    .where(eq(vaults.ownerAddress, walletAddress))
-    .all()
-
-  const userActivity = await db.select().from(activity)
-    .where(eq(activity.walletAddress, walletAddress))
-    .all()
+  const [vaultCount, activeCount, accessedCount, licenseCount, accessCount] = await Promise.all([
+    db.select({ value: sql<number>`count(*)` }).from(vaults)
+      .where(eq(vaults.ownerAddress, walletAddress)).get(),
+    db.select({ value: sql<number>`count(*)` }).from(vaults)
+      .where(and(eq(vaults.ownerAddress, walletAddress), eq(vaults.status, 'active'))).get(),
+    db.select({ value: sql<number>`count(*)` }).from(vaults)
+      .where(and(eq(vaults.ownerAddress, walletAddress), eq(vaults.status, 'accessed'))).get(),
+    db.select({ value: sql<number>`count(*)` }).from(activity)
+      .where(and(eq(activity.walletAddress, walletAddress), eq(activity.type, 'license_minted'))).get(),
+    db.select({ value: sql<number>`count(*)` }).from(activity)
+      .where(and(eq(activity.walletAddress, walletAddress), eq(activity.type, 'vault_accessed'))).get(),
+  ])
 
   return {
-    totalVaults: userVaults.length,
-    activeVaults: userVaults.filter(v => v.status === 'active').length,
-    accessedVaults: userVaults.filter(v => v.status === 'accessed').length,
-    licenseCount: userActivity.filter(a => a.type === 'license_minted').length,
-    accessCount: userActivity.filter(a => a.type === 'vault_accessed').length,
+    totalVaults: Number(vaultCount?.value ?? 0),
+    activeVaults: Number(activeCount?.value ?? 0),
+    accessedVaults: Number(accessedCount?.value ?? 0),
+    licenseCount: Number(licenseCount?.value ?? 0),
+    accessCount: Number(accessCount?.value ?? 0),
   }
 }
