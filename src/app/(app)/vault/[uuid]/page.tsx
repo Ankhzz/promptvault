@@ -87,7 +87,7 @@ export default function VaultDetailPage() {
         setLicenses(l)
         setActivityEntries(a)
       })
-      .catch(() => {})
+      .catch(() => { addToast({ title: 'Failed to load vault data', variant: 'destructive' }) })
       .finally(() => setLoading(false))
   }, [uuid])
 

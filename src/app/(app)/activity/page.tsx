@@ -9,6 +9,7 @@ import { AuthGuard } from '@/components/AuthGuard'
 import { STORY_CHAIN } from '@/lib/constants'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { getUserActivity } from '@/db/queries'
+import { useToast } from '@/components/ui/Toast'
 
 type ActivityEntry = {
   id: number
@@ -33,6 +34,7 @@ export default function ActivityPage() {
   const { authenticated } = usePrivy()
   const { wallets } = useWallets()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
+  const { addToast } = useToast()
   const address = wallets[0]?.address
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function ActivityPage() {
       setEntries([])
       return
     }
-    getUserActivity(address).then(setEntries).catch(() => {})
+    getUserActivity(address).then(setEntries).catch(() => { addToast({ title: 'Failed to load activity', variant: 'destructive' }) })
   }, [address])
 
   return (

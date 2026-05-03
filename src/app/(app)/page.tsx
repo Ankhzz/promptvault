@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { getUserStats, getUserVaults } from '@/db/queries'
 import { cn } from '@/lib/cn'
+import { useToast } from '@/components/ui/Toast'
 
 const features = [
   {
@@ -50,6 +51,7 @@ export default function DashboardPage() {
     createdAt: Date
   }>>([])
   const [loading, setLoading] = useState(true)
+  const { addToast } = useToast()
 
   const address = wallets[0]?.address
 
@@ -69,7 +71,7 @@ export default function DashboardPage() {
         setStats(s)
         setVaultList(v)
       })
-      .catch(() => {})
+      .catch(() => { addToast({ title: 'Failed to load dashboard data', variant: 'destructive' }) })
       .finally(() => setLoading(false))
   }, [address])
 
