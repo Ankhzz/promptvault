@@ -91,9 +91,15 @@ export default function CreateVaultPage() {
       return
     }
 
-    isRunningRef.current = true
+  isRunningRef.current = true
 
-    const txHashes: string[] = []
+  if (selectedFile && !process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY) {
+    isRunningRef.current = false
+    addToast({ title: 'Lighthouse API key missing', description: 'Set NEXT_PUBLIC_LIGHTHOUSE_API_KEY before creating a vault with a file', variant: 'destructive' })
+    return
+  }
+
+  const txHashes: string[] = []
     let ipfsCid: string | undefined
     let encryptedFileMeta: string | undefined
 
@@ -163,18 +169,14 @@ export default function CreateVaultPage() {
       txHashes.push(uploadResult.txHashes.allocate)
       txHashes.push(uploadResult.txHashes.write)
 
-      if (selectedFile) {
-        setStep('encrypt_file')
-        addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
+    if (selectedFile) {
+      setStep('encrypt_file')
+      addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
 
-        const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
-        encryptedFileMeta = JSON.stringify(encrypted)
+      const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
+      encryptedFileMeta = JSON.stringify(encrypted)
 
-        const apiKey = process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY
-        if (!apiKey) {
-          throw new Error('NEXT_PUBLIC_LIGHTHOUSE_API_KEY is not configured. File upload requires a Lighthouse API key.')
-        }
-        ipfsCid = await uploadToLighthouse(encryptedBlob, apiKey)
+      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
         setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
       }
 
