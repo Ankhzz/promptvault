@@ -99,7 +99,8 @@ export function middleware(request: NextRequest) {
   }
 
   if (process.env.NODE_ENV !== 'development') {
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    const forwarded = request.headers.get('x-forwarded-for')
+    const ip = (forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip')) || 'unknown'
     if (!checkRateLimit(ip)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
