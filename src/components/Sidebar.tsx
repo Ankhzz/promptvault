@@ -13,6 +13,12 @@ const navItems = [
   { href: '/activity', label: 'Activity', icon: ActivityIcon },
 ]
 
+function isActiveNav(href: string, pathname: string) {
+  if (href === '/') return pathname === '/'
+  if (href === '/vault') return pathname.startsWith('/vault')
+  return pathname.startsWith(href)
+}
+
 export function Sidebar() {
   const pathname = usePathname()
 
@@ -27,7 +33,7 @@ export function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+          const active = isActiveNav(href, pathname)
           return (
             <Link
               key={href}

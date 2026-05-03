@@ -21,6 +21,8 @@ export async function createVaultRecord(data: {
   ipId: string
   licenseTermsId: number
   licenseTokenId?: string
+  ipfsCid?: string
+  encryptedFileMeta?: string
   encryptedDataKey?: string
   dataKeyEncryptionMeta?: string
   allocateTxHash?: string
@@ -86,6 +88,21 @@ export async function getVaultByUuid(uuid: number) {
   return db.select().from(vaults).where(eq(vaults.uuid, uuid)).get()
 }
 
+export async function getVaultLicenseTokens(vaultUuid: number) {
+  return db.select().from(licenseTokens)
+    .where(eq(licenseTokens.vaultUuid, vaultUuid))
+    .orderBy(desc(licenseTokens.createdAt))
+    .all()
+}
+
+export async function getVaultActivity(vaultUuid: number, limit = 20) {
+  return db.select().from(activity)
+    .where(eq(activity.vaultUuid, vaultUuid))
+    .orderBy(desc(activity.createdAt))
+    .limit(limit)
+    .all()
+}
+
 export async function getUserActivity(walletAddress: string, limit = 50) {
   return db.select().from(activity)
     .where(eq(activity.walletAddress, walletAddress))
@@ -104,6 +121,8 @@ export async function getVaultEncryptedDataKey(uuid: number) {
     encryptedDataKey: vaults.encryptedDataKey,
     dataKeyEncryptionMeta: vaults.dataKeyEncryptionMeta,
     ownerAddress: vaults.ownerAddress,
+    ipfsCid: vaults.ipfsCid,
+    encryptedFileMeta: vaults.encryptedFileMeta,
   }).from(vaults).where(eq(vaults.uuid, uuid)).get()
   return row
 }

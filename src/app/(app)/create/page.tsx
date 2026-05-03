@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
-import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon } from '@/components/Icons'
+import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon } from '@/components/Icons'
 import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
@@ -17,6 +17,7 @@ import { createPublicClient, createWalletClient, custom, http, type Address } fr
 import { custom as viemCustom, Account } from 'viem'
 import { StoryClient, StoryConfig, PILFlavor } from '@story-protocol/core-sdk'
 import { createVaultRecord } from '@/db/queries'
+import { parseTxError } from '@/lib/parseTxError'
 import {
   encryptDataKeyForWallet,
   EIP712_DOMAIN,
@@ -24,27 +25,32 @@ import {
   EIP712_PRIMARY_TYPE,
   buildEIP712Message,
 } from '@/lib/crypto/datakey-encryption'
+import { encryptFile, uploadToLighthouse, type EncryptedFile } from '@/lib/encrypt-file'
 
-type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_key' | 'persist' | 'done'
+type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_file' | 'encrypt_key' | 'persist' | 'done'
 
 interface StepResult {
   ipId?: Address
   licenseTermsId?: number
   licenseTokenId?: bigint
   vaultUuid?: number
+  ipfsCid?: string
   txHashes?: string[]
   dbPersisted?: boolean
+  encryptedFileMeta?: string
 }
 
 export default function CreateVaultPage() {
   const { authenticated, login } = usePrivy()
   const { wallets } = useWallets()
   const { addToast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<Step>('idle')
   const [result, setResult] = useState<StepResult>({})
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const getClients = useCallback(async () => {
     if (wallets.length === 0) return null
@@ -76,6 +82,8 @@ export default function CreateVaultPage() {
     }
 
     const txHashes: string[] = []
+    let ipfsCid: string | undefined
+    let encryptedFileMeta: string | undefined
 
     try {
       setStep('register')
@@ -143,6 +151,21 @@ export default function CreateVaultPage() {
       txHashes.push(uploadResult.txHashes.allocate)
       txHashes.push(uploadResult.txHashes.write)
 
+      if (selectedFile) {
+        setStep('encrypt_file')
+        addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
+
+        const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
+        encryptedFileMeta = JSON.stringify(encrypted)
+
+        const apiKey = process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY
+        if (!apiKey) {
+          throw new Error('NEXT_PUBLIC_LIGHTHOUSE_API_KEY is not configured. File upload requires a Lighthouse API key.')
+        }
+        ipfsCid = await uploadToLighthouse(encryptedBlob, apiKey)
+        setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
+      }
+
       setStep('encrypt_key')
       addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
 
@@ -180,6 +203,8 @@ export default function CreateVaultPage() {
           ipId,
           licenseTermsId,
           licenseTokenId: licenseTokenId?.toString(),
+          ipfsCid,
+          encryptedFileMeta,
           encryptedDataKey: JSON.stringify(encryptedDataKey),
           dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
           allocateTxHash: uploadResult.txHashes.allocate,
@@ -200,16 +225,19 @@ export default function CreateVaultPage() {
       setStep('done')
       addToast({ title: 'Vault created!', description: `UUID: ${uploadResult.uuid}`, variant: 'accent' })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const parsed = parseTxError(err)
       setStep('idle')
-      addToast({ title: 'Failed', description: msg.slice(0, 100), variant: 'destructive' })
+      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
-  }, [name, getClients, addToast])
+  }, [name, getClients, addToast, selectedFile])
 
   const stepItems = [
     { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
     { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
     { key: 'upload' as Step, label: 'Encrypt & Upload CDR', done: !!result.vaultUuid },
+    ...(selectedFile ? [
+      { key: 'encrypt_file' as Step, label: 'Encrypt File & Upload IPFS', done: !!result.ipfsCid },
+    ] : []),
     { key: 'encrypt_key' as Step, label: 'Encrypt Data Key', done: !!result.vaultUuid },
     { key: 'persist' as Step, label: 'Save Vault Record', done: result.dbPersisted !== undefined },
   ]
@@ -252,6 +280,64 @@ export default function CreateVaultPage() {
               onChange={(e) => setDescription(e.target.value)}
               disabled={step !== 'idle'}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileIcon className="h-5 w-5 text-accent" />
+              <CardTitle>Content File</CardTitle>
+            </div>
+            <CardDescription>
+              {selectedFile
+                ? 'File will be encrypted client-side before upload'
+                : 'Optional: attach a file to encrypt and store on IPFS'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) setSelectedFile(file)
+              }}
+              disabled={step !== 'idle'}
+            />
+            {selectedFile ? (
+              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileIcon className="h-5 w-5 text-muted shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-subtle">{formatFileSize(selectedFile.size)}</p>
+                  </div>
+                </div>
+                {step === 'idle' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFile(null)
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={step !== 'idle'}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-muted hover:border-accent/30 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileIcon className="h-5 w-5" />
+                <span className="text-sm font-medium">Choose file to encrypt</span>
+              </button>
+            )}
           </CardContent>
         </Card>
 
@@ -330,55 +416,61 @@ export default function CreateVaultPage() {
               <DataRow label="IP Asset" value={result.ipId || ''} mono />
               <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
               <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
-                <DataRow
-                  label="Data Key"
-                  value={result.dbPersisted ? 'Encrypted & saved' : 'Encryption failed — retry below'}
-                  mono={false}
-                />
-              </CardContent>
-              {!result.dbPersisted && (
-                <CardFooter>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/vaults/retry-persist', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            uuid: result.vaultUuid,
-                            ownerAddress: wallets[0]?.address,
-                            name: name.trim(),
-                            description: description.trim() || undefined,
-                            ipId: result.ipId,
-                            licenseTermsId: result.licenseTermsId,
-                            licenseTokenId: result.licenseTokenId?.toString(),
-                          }),
-                        })
-                        const data = await res.json()
-                        if (data.ok) {
-                          setResult(prev => ({ ...prev, dbPersisted: true }))
-                          addToast({ title: 'Vault record saved!', variant: 'accent' })
-                        } else {
-                          addToast({ title: 'Retry failed', description: data.error, variant: 'destructive' })
-                        }
-                      } catch {
-                        addToast({ title: 'Retry failed', description: 'Network error', variant: 'destructive' })
+              {result.ipfsCid && (
+                <DataRow label="IPFS CID" value={result.ipfsCid} mono />
+              )}
+              <DataRow
+                label="Data Key"
+                value={result.dbPersisted ? 'Encrypted & saved' : 'Encryption failed — retry below'}
+                mono={false}
+              />
+            </CardContent>
+            {!result.dbPersisted && (
+              <CardFooter>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/vaults/retry-persist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          uuid: result.vaultUuid,
+                          ownerAddress: wallets[0]?.address,
+                          name: name.trim(),
+                          description: description.trim() || undefined,
+                          ipId: result.ipId,
+                          licenseTermsId: result.licenseTermsId,
+                          licenseTokenId: result.licenseTokenId?.toString(),
+                          ipfsCid: result.ipfsCid,
+                          encryptedDataKey: undefined,
+                          dataKeyEncryptionMeta: undefined,
+                        }),
+                      })
+                      const data = await res.json()
+                      if (data.ok) {
+                        setResult(prev => ({ ...prev, dbPersisted: true }))
+                        addToast({ title: 'Vault record saved!', variant: 'accent' })
+                      } else {
+                        addToast({ title: 'Retry failed', description: data.error, variant: 'destructive' })
                       }
-                    }}
-                  >
-                    Retry Save
-                  </Button>
-                </CardFooter>
-              )}
-              {result.dbPersisted && (
-                <CardFooter>
-                  <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
-                    Copy Details
-                  </Button>
-                </CardFooter>
-              )}
+                    } catch {
+                      addToast({ title: 'Retry failed', description: 'Network error', variant: 'destructive' })
+                    }
+                  }}
+                >
+                  Retry Save
+                </Button>
+              </CardFooter>
+            )}
+            {result.dbPersisted && (
+              <CardFooter>
+                <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
+                  Copy Details
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         )}
       </div>
@@ -395,4 +487,10 @@ function DataRow({ label, value, mono }: { label: string; value: string; mono?: 
       </span>
     </div>
   )
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }

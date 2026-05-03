@@ -1,0 +1,1 @@
+ALTER TABLE `vaults` ADD `ipfs_cid` text;

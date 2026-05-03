@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -25,9 +25,12 @@ import {
   type EncryptedDataKey,
   type SignTypedDataFn,
 } from '@/lib/crypto/datakey-encryption'
+import { parseTxError } from '@/lib/parseTxError'
 
 type AccessState = 'idle' | 'accessing' | 'done'
 type UnlockMethod = 'cdr_threshold' | 'local_recovery'
+
+const DATAKEY_SESSION_PREFIX = 'pv-datakey-'
 
 export default function UnlockVaultPage() {
   return (
@@ -42,6 +45,7 @@ function UnlockVaultContent() {
   const { wallets } = useWallets()
   const { addToast } = useToast()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const [vaultUuid, setVaultUuid] = useState(searchParams.get('vault') ?? '')
   const [licenseTokenId, setLicenseTokenId] = useState('')
@@ -49,6 +53,17 @@ function UnlockVaultContent() {
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
   const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
+
+  const storeKeyAndFinish = useCallback((keyHex: string, uuid: number, method: UnlockMethod, txHash?: string) => {
+    try {
+      sessionStorage.setItem(`${DATAKEY_SESSION_PREFIX}${uuid}`, keyHex)
+    } catch {}
+
+    setRecoveredKey(keyHex)
+    setReadTxHash(txHash ?? null)
+    setUnlockMethod(method)
+    setState('done')
+  }, [])
 
   const accessVaultCDR = useCallback(async () => {
     if (!vaultUuid || !licenseTokenId) {
@@ -86,10 +101,7 @@ function UnlockVaultContent() {
       })
 
       const keyHex = toHex(result.dataKey)
-      setRecoveredKey(keyHex)
-      setReadTxHash(result.txHash ?? null)
-      setUnlockMethod('cdr_threshold')
-      setState('done')
+      storeKeyAndFinish(keyHex, Number(vaultUuid), 'cdr_threshold', result.txHash ?? undefined)
       addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
 
       recordVaultAccess({
@@ -98,11 +110,11 @@ function UnlockVaultContent() {
         txHash: result.txHash ?? undefined,
       }).catch(() => {})
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const parsed = parseTxError(err)
       setState('idle')
-      addToast({ title: 'Access denied', description: msg.slice(0, 120), variant: 'destructive' })
+      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
-  }, [vaultUuid, licenseTokenId, wallets, addToast])
+  }, [vaultUuid, licenseTokenId, wallets, addToast, storeKeyAndFinish])
 
   const accessVaultLocal = useCallback(async () => {
     if (!vaultUuid) {
@@ -146,10 +158,7 @@ function UnlockVaultContent() {
 
       const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn)
       const keyHex = toHex(dataKey)
-      setRecoveredKey(keyHex)
-      setReadTxHash(null)
-      setUnlockMethod('local_recovery')
-      setState('done')
+      storeKeyAndFinish(keyHex, Number(vaultUuid), 'local_recovery')
       addToast({ title: 'Vault unlocked!', description: 'Data key recovered from local backup', variant: 'accent' })
 
       recordVaultAccess({
@@ -157,11 +166,11 @@ function UnlockVaultContent() {
         walletAddress: clients.address,
       }).catch(() => {})
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const parsed = parseTxError(err)
       setState('idle')
-      addToast({ title: 'Local recovery failed', description: msg.slice(0, 120), variant: 'destructive' })
+      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
-  }, [vaultUuid, wallets, addToast])
+  }, [vaultUuid, wallets, addToast, storeKeyAndFinish])
 
   if (!authenticated) {
     return (
@@ -278,8 +287,15 @@ function UnlockVaultContent() {
                 </Badge>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex gap-3">
               <Badge variant="accent" dot>Decrypted</Badge>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push(`/vault/${vaultUuid}`)}
+              >
+                View Vault
+              </Button>
             </CardFooter>
           </Card>
         )}

@@ -15,6 +15,8 @@ export const vaults = sqliteTable('vaults', {
   ipId: text('ip_id').notNull(),
   licenseTermsId: integer('license_terms_id').notNull(),
   licenseTokenId: text('license_token_id'),
+  ipfsCid: text('ipfs_cid'),
+  encryptedFileMeta: text('encrypted_file_meta'),
   encryptedDataKey: text('encrypted_data_key'),
   dataKeyEncryptionMeta: text('data_key_encryption_meta'),
   allocateTxHash: text('allocate_tx_hash'),

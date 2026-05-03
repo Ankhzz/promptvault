@@ -128,3 +128,41 @@ export const CheckIcon = forwardRef<SVGSVGElement, IconProps>(
   ),
 )
 CheckIcon.displayName = 'CheckIcon'
+
+export const ArrowLeftIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  ),
+)
+ArrowLeftIcon.displayName = 'ArrowLeftIcon'
+
+export const FileIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+    </svg>
+  ),
+)
+FileIcon.displayName = 'FileIcon'
+
+export const DownloadIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  ),
+)
+DownloadIcon.displayName = 'DownloadIcon'
+
+export const EyeIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+)
+EyeIcon.displayName = 'EyeIcon'

@@ -9,6 +9,7 @@ import { VaultIcon, ShieldIcon, KeyIcon, ArrowRightIcon } from '@/components/Ico
 import Link from 'next/link'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { getUserStats, getUserVaults } from '@/db/queries'
+import { cn } from '@/lib/cn'
 
 const features = [
   {
@@ -34,27 +35,52 @@ const features = [
 export default function DashboardPage() {
   const { authenticated } = usePrivy()
   const { wallets } = useWallets()
-  const [stats, setStats] = useState<{ totalVaults: number; activeVaults: number; accessedVaults: number; licenseCount: number; accessCount: number } | null>(null)
-  const [vaultList, setVaultList] = useState<Array<{ uuid: number; name: string; status: string; ipId: string; createdAt: Date }>>([])
+  const [stats, setStats] = useState<{
+    totalVaults: number
+    activeVaults: number
+    accessedVaults: number
+    licenseCount: number
+    accessCount: number
+  } | null>(null)
+  const [vaultList, setVaultList] = useState<Array<{
+    uuid: number
+    name: string
+    status: string
+    ipId: string
+    createdAt: Date
+  }>>([])
+  const [loading, setLoading] = useState(true)
 
   const address = wallets[0]?.address
 
   useEffect(() => {
-    if (!address) return
-    getUserStats(address).then(setStats).catch(() => {})
-    getUserVaults(address).then(setVaultList).catch(() => {})
+    if (!address) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    Promise.all([
+      getUserStats(address),
+      getUserVaults(address),
+    ])
+      .then(([s, v]) => {
+        setStats(s)
+        setVaultList(v)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [address])
 
   const statCards = stats
     ? [
         { label: 'Total Vaults', value: String(stats.totalVaults), accent: false },
         { label: 'Licensed Access', value: String(stats.accessCount), accent: true },
-        { label: 'IP Assets', value: String(stats.totalVaults), accent: false },
+        { label: 'Active Licenses', value: String(stats.licenseCount), accent: false },
       ]
     : [
         { label: 'Total Vaults', value: '-', accent: false },
         { label: 'Licensed Access', value: '-', accent: true },
-        { label: 'IP Assets', value: '-', accent: false },
+        { label: 'Active Licenses', value: '-', accent: false },
       ]
 
   return (
@@ -72,18 +98,32 @@ export default function DashboardPage() {
         {authenticated ? (
           <>
             <div className="grid grid-cols-3 gap-4">
-              {statCards.map((stat) => (
-                <Card key={stat.label}>
-                  <CardContent>
-                    <p className="text-sm text-muted mb-1">{stat.label}</p>
-                    <p className={cn('font-display text-3xl font-bold tracking-tight',
-                      stat.accent ? 'text-gradient' : 'text-foreground',
-                    )}>
-                      {stat.value}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+              {loading ? (
+                <>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent>
+                        <div className="h-4 w-24 bg-surface-active rounded animate-pulse mb-2" />
+                        <div className="h-8 w-12 bg-surface-active rounded animate-pulse" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </>
+              ) : (
+                statCards.map((stat) => (
+                  <Card key={stat.label}>
+                    <CardContent>
+                      <p className="text-sm text-muted mb-1">{stat.label}</p>
+                      <p className={cn(
+                        'font-display text-3xl font-bold tracking-tight',
+                        stat.accent ? 'text-gradient' : 'text-foreground',
+                      )}>
+                        {stat.value}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             <div className="flex items-center justify-between">
@@ -95,25 +135,39 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {vaultList.length > 0 ? (
+            {loading ? (
               <div className="space-y-3">
-                {vaultList.map((vault) => (
-                  <Card key={vault.uuid} className="p-4">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Card key={i} className="p-4">
                     <div className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">{vault.name}</span>
-                          <Badge variant={vault.status === 'accessed' ? 'default' : 'accent'} dot>
-                            {vault.status}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId.slice(0, 10)}...{vault.ipId.slice(-6)}</p>
+                      <div className="space-y-2">
+                        <div className="h-4 w-40 bg-surface-active rounded animate-pulse" />
+                        <div className="h-3 w-56 bg-surface-active rounded animate-pulse" />
                       </div>
-                      <Link href={`/unlock?vault=${vault.uuid}`}>
-                        <Button variant="secondary" size="sm">Unlock</Button>
-                      </Link>
+                      <div className="h-8 w-16 bg-surface-active rounded animate-pulse" />
                     </div>
                   </Card>
+                ))}
+              </div>
+            ) : vaultList.length > 0 ? (
+              <div className="space-y-3">
+                {vaultList.map((vault) => (
+                  <Link key={vault.uuid} href={`/vault/${vault.uuid}`}>
+                    <Card className="p-4 hoverable">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">{vault.name}</span>
+                            <Badge variant={vault.status === 'accessed' ? 'default' : 'accent'} dot>
+                              {vault.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId.slice(0, 10)}...{vault.ipId.slice(-6)}</p>
+                        </div>
+                        <Button variant="secondary" size="sm">View</Button>
+                      </div>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -160,8 +214,4 @@ export default function DashboardPage() {
       </div>
     </AppShell>
   )
-}
-
-function cn(...args: (string | boolean | undefined)[]) {
-  return args.filter(Boolean).join(' ')
 }
