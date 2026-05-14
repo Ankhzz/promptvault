@@ -54,6 +54,8 @@ export const purchases = sqliteTable('purchases', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   vaultUuid: integer('vault_uuid').notNull().references(() => vaults.uuid),
   buyerAddress: text('buyer_address').notNull().references(() => users.walletAddress),
+  buyerLicenseTokenId: text('buyer_license_token_id'),
+  mintTxHash: text('mint_tx_hash'),
   paid: integer('paid', { mode: 'boolean' }).notNull().default(true).$defaultFn(() => true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 }, (table) => [

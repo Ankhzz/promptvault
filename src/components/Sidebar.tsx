@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/cn'
-import { VaultIcon, GridIcon, ActivityIcon, PlusIcon, ShieldIcon, UnlockIcon, XIcon } from '@/components/Icons'
+import { VaultIcon, GridIcon, ActivityIcon, PlusIcon, ShieldIcon, UnlockIcon, XIcon, GlobeIcon } from '@/components/Icons'
 import { WalletStatus } from '@/components/WalletStatus'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: GridIcon },
   { href: '/my-vaults', label: 'My Vaults', icon: VaultIcon },
+  { href: '/explore', label: 'Explore', icon: GlobeIcon },
   { href: '/create', label: 'Create Vault', icon: PlusIcon },
   { href: '/unlock', label: 'Unlock Vault', icon: UnlockIcon },
   { href: '/activity', label: 'Activity', icon: ActivityIcon },

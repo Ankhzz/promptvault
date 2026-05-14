@@ -82,16 +82,18 @@ function UnlockVaultContent() {
     setState('done')
   }, [addToast])
 
-  const accessVaultCDR = useCallback(async () => {
+const accessVaultCDR = useCallback(async () => {
     if (isAccessingRef.current) return
-    if (!vaultIdValid || !licenseTokenId) {
-      addToast({ title: 'Missing fields', description: 'Enter a valid Vault UUID and License Token ID', variant: 'warning' })
+    if (!vaultIdValid) {
+      addToast({ title: 'Invalid Vault UUID', variant: 'warning' })
       return
     }
 
     isAccessingRef.current = true
     try {
       const vaultData = await getVaultByUuid(vaultId)
+      let resolvedLicenseTokenId = licenseTokenId
+
       if (vaultData?.isForSale) {
         const walletAddr = wallets[0]?.address
         if (walletAddr && vaultData.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
@@ -103,7 +105,17 @@ function UnlockVaultContent() {
             router.push(`/vault/${vaultId}`)
             return
           }
+          if (purchase.buyerLicenseTokenId) {
+            resolvedLicenseTokenId = purchase.buyerLicenseTokenId
+          }
         }
+      }
+
+      if (!resolvedLicenseTokenId) {
+        setState('idle')
+        isAccessingRef.current = false
+        addToast({ title: 'Missing License Token ID', description: 'Enter a valid License Token ID', variant: 'warning' })
+        return
       }
 
       const clients = await getWalletClients(wallets)
@@ -127,20 +139,20 @@ function UnlockVaultContent() {
         validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
       })
 
-      const accessAuxData = encodeAccessAuxData(BigInt(licenseTokenId))
+      const accessAuxData = encodeAccessAuxData(BigInt(resolvedLicenseTokenId))
 
-    const result = await cdrClient.consumer.accessCDR({
-      uuid: vaultId,
-      accessAuxData,
-      timeoutMs: 120_000,
-    })
+      const result = await cdrClient.consumer.accessCDR({
+        uuid: vaultId,
+        accessAuxData,
+        timeoutMs: 120_000,
+      })
 
-    const keyHex = toHex(result.dataKey)
-    storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', result.txHash ?? undefined)
-    addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
+      const keyHex = toHex(result.dataKey)
+      storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', result.txHash ?? undefined)
+      addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
 
-    recordVaultAccess({
-      vaultUuid: vaultId,
+      recordVaultAccess({
+        vaultUuid: vaultId,
         walletAddress: clients.address,
         txHash: result.txHash ?? undefined,
       }).catch(() => {})
@@ -190,12 +202,14 @@ function UnlockVaultContent() {
       const vaultData = await getVaultEncryptedDataKey(vaultId)
       if (!vaultData?.encryptedDataKey) {
         setState('idle')
+        isAccessingRef.current = false
         addToast({ title: 'No local key backup', description: 'This vault has no encrypted data key stored. Use CDR threshold unlock instead.', variant: 'warning' })
         return
       }
 
       if (vaultData.ownerAddress.toLowerCase() !== clients.address.toLowerCase()) {
         setState('idle')
+        isAccessingRef.current = false
         addToast({ title: 'Not vault owner', description: 'Local recovery is only available for the vault owner', variant: 'destructive' })
         return
       }

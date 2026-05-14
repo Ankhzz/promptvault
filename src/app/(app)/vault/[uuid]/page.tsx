@@ -26,6 +26,7 @@ import { STORY_CHAIN } from '@/lib/constants'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault } from '@/db/queries'
 import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { useLicenseToken } from '@/hooks/useLicenseToken'
 import { cn } from '@/lib/cn'
 
 type VaultData = Awaited<ReturnType<typeof getVaultByUuid>>
@@ -42,6 +43,7 @@ const statusConfig: Record<string, { badge: 'accent' | 'default' | 'warning' | '
 }
 
 type DecryptState = 'idle' | 'decrypting' | 'done' | 'error'
+type PurchaseStep = 'idle' | 'minting' | 'finalizing' | 'redirecting' | 'done' | 'mint_failed' | 'finalize_failed'
 
 export default function VaultDetailPage() {
   const params = useParams()
@@ -68,7 +70,10 @@ export default function VaultDetailPage() {
 
   const [hasPurchased, setHasPurchased] = useState(false)
   const [confirmingPurchase, setConfirmingPurchase] = useState(false)
-  const [purchasing, setPurchasing] = useState(false)
+  const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>('idle')
+  const [buyerLicenseTokenId, setBuyerLicenseTokenId] = useState<string | null>(null)
+  const [mintTxHash, setMintTxHash] = useState<string | null>(null)
+  const { mintLicenseToken, isReady: mintReady } = useLicenseToken()
 
   const address = wallets[0]?.address
   const isOwner = vault && address
@@ -76,6 +81,8 @@ export default function VaultDetailPage() {
     : false
 
   const needsPurchase = !!vault?.isForSale && !isOwner && !hasPurchased
+
+  const purchaseBusy = purchaseStep === 'minting' || purchaseStep === 'finalizing' || purchaseStep === 'redirecting'
 
   const [hasSessionKey, setHasSessionKey] = useState(false)
 
@@ -95,7 +102,10 @@ export default function VaultDetailPage() {
         setLicenses(l)
         setActivityEntries(a)
         if (v?.isForSale && address && v.ownerAddress.toLowerCase() !== address.toLowerCase()) {
-          getPurchase(uuid, address).then(p => { setHasPurchased(!!p?.paid) })
+          getPurchase(uuid, address).then(p => {
+            setHasPurchased(!!p?.paid)
+            if (p?.buyerLicenseTokenId) setBuyerLicenseTokenId(p.buyerLicenseTokenId)
+          })
         }
       })
       .catch(() => { addToast({ title: 'Failed to load vault data', variant: 'destructive' }) })
@@ -126,10 +136,11 @@ export default function VaultDetailPage() {
       addToast({ title: 'Purchase required', description: 'Buy this vault first to access content', variant: 'warning' })
       return
     }
-    addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
-    const params = new URLSearchParams({ vaultId: String(uuid) })
-    if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
-    router.push(`/unlock?${params}`)
+        addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
+        const params = new URLSearchParams({ vaultId: String(uuid) })
+        const tokenId = buyerLicenseTokenId || vault.licenseTokenId
+        if (tokenId) params.set('licenseTokenId', tokenId)
+        router.push(`/unlock?${params}`)
     return
   }
 
@@ -163,7 +174,7 @@ export default function VaultDetailPage() {
     } finally {
       isDecryptingRef.current = false
     }
-  }, [vault, uuid, addToast, router, needsPurchase])
+  }, [vault, uuid, addToast, router, needsPurchase, buyerLicenseTokenId])
 
   const handleDownload = useCallback(() => {
     if (!decryptedFile) return
@@ -177,18 +188,84 @@ export default function VaultDetailPage() {
 
   const handlePurchase = useCallback(async () => {
     if (!vault || !address) return
-    setPurchasing(true)
+
+    if (hasPurchased && buyerLicenseTokenId) {
+      setPurchaseStep('redirecting')
+      addToast({ title: 'Redirecting to unlock...', variant: 'default' })
+      const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+      params.set('licenseTokenId', buyerLicenseTokenId)
+      router.push(`/unlock?${params}`)
+      return
+    }
+
+    if (!mintReady) {
+      addToast({ title: 'Wallet not ready', description: 'Wait for wallet connection and try again', variant: 'warning' })
+      return
+    }
+
     try {
-      await purchaseVault(vault.uuid, address)
+      setPurchaseStep('minting')
+      addToast({ title: 'Minting license token...', description: 'Confirm the transaction in your wallet', variant: 'default' })
+
+      const mintResult = await mintLicenseToken({
+        licensorIpId: vault.ipId as `0x${string}`,
+        licenseTermsId: vault.licenseTermsId,
+        amount: 1,
+        receiver: address as `0x${string}`,
+      })
+
+      if (!mintResult.success || !mintResult.licenseTokenId) {
+        setPurchaseStep('mint_failed')
+        addToast({ title: 'License mint failed', description: mintResult.error || 'Transaction reverted', variant: 'destructive' })
+        return
+      }
+
+      const tokenIdStr = mintResult.licenseTokenId.toString()
+      const txHash = mintResult.txHash ?? ''
+      setBuyerLicenseTokenId(tokenIdStr)
+      setMintTxHash(txHash)
+
+      setPurchaseStep('finalizing')
+      addToast({ title: 'Finalizing access...', description: 'Saving purchase record', variant: 'default' })
+
+      await purchaseVault(vault.uuid, address, tokenIdStr, txHash)
       setHasPurchased(true)
       setConfirmingPurchase(false)
-      addToast({ title: 'Purchase successful!', description: 'You can now unlock this vault', variant: 'accent' })
-    } catch {
-      addToast({ title: 'Purchase failed', variant: 'destructive' })
-    } finally {
-      setPurchasing(false)
+
+      setPurchaseStep('redirecting')
+      addToast({ title: 'Purchase successful!', description: 'Redirecting to unlock...', variant: 'accent' })
+      const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+      params.set('licenseTokenId', tokenIdStr)
+      router.push(`/unlock?${params}`)
+    } catch (err) {
+      if (buyerLicenseTokenId && mintTxHash) {
+        setPurchaseStep('finalize_failed')
+        addToast({ title: 'DB save failed', description: 'License token minted but purchase record failed. Click Retry.', variant: 'warning' })
+      } else {
+        setPurchaseStep('mint_failed')
+        addToast({ title: 'Purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+      }
     }
-  }, [vault, address, addToast])
+  }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router])
+
+  const handleRetryFinalize = useCallback(async () => {
+    if (!vault || !address || !buyerLicenseTokenId || !mintTxHash) return
+    try {
+      setPurchaseStep('finalizing')
+      addToast({ title: 'Retrying finalize...', variant: 'default' })
+      await purchaseVault(vault.uuid, address, buyerLicenseTokenId, mintTxHash)
+      setHasPurchased(true)
+      setConfirmingPurchase(false)
+      setPurchaseStep('redirecting')
+      addToast({ title: 'Purchase successful!', description: 'Redirecting to unlock...', variant: 'accent' })
+      const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+      params.set('licenseTokenId', buyerLicenseTokenId)
+      router.push(`/unlock?${params}`)
+    } catch {
+      setPurchaseStep('finalize_failed')
+      addToast({ title: 'DB save failed again', description: 'License token is minted. Try again later.', variant: 'destructive' })
+    }
+  }, [vault, address, buyerLicenseTokenId, mintTxHash, addToast, router])
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
@@ -426,54 +503,100 @@ export default function VaultDetailPage() {
 {decryptState === 'idle' && (
   <div className="flex gap-3">
     {needsPurchase ? (
-      confirmingPurchase ? (
-        <div className="flex-1 space-y-3 rounded-lg border border-border bg-surface px-4 py-3">
-          <p className="text-sm text-muted">
-            Confirm purchase: <span className="font-medium text-foreground">{formatPrice(vault.price)}</span>
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              loading={purchasing}
-              disabled={purchasing}
-              onClick={handlePurchase}
-            >
-              Confirm Purchase
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={purchasing}
-              onClick={() => setConfirmingPurchase(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <>
+      (() => {
+        if (purchaseStep === 'mint_failed') {
+          return (
+            <div className="flex-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
+              <p className="text-sm text-destructive">License token mint failed</p>
+              <Button variant="primary" size="sm" onClick={() => { setPurchaseStep('idle'); setConfirmingPurchase(true) }}>
+                Retry Purchase
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setPurchaseStep('idle')}>
+                Cancel
+              </Button>
+            </div>
+          )
+        }
+        if (purchaseStep === 'finalize_failed') {
+          return (
+            <div className="flex-1 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 space-y-2">
+              <p className="text-sm text-warning">License token minted but purchase record failed</p>
+              <Button variant="primary" size="sm" onClick={handleRetryFinalize}>
+                Retry Finalize
+              </Button>
+            </div>
+          )
+        }
+        if (purchaseBusy) {
+          const steps = [
+            { key: 'minting', label: 'Minting license token...' },
+            { key: 'finalizing', label: 'Finalizing access...' },
+            { key: 'redirecting', label: 'Redirecting to unlock...' },
+          ] as const
+          return (
+            <div className="flex-1 space-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+              {steps.map((s) => {
+                const isActive = purchaseStep === s.key
+                const isDone = steps.findIndex(x => x.key === purchaseStep) > steps.findIndex(x => x.key === s.key)
+                return (
+                  <div key={s.key} className="flex items-center gap-2">
+                    {isDone ? (
+                      <CheckIcon className="h-4 w-4 text-accent shrink-0" />
+                    ) : isActive ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent shrink-0" />
+                    ) : (
+                      <div className="h-4 w-4 rounded-full border border-border shrink-0" />
+                    )}
+                    <span className={cn('text-sm', isActive ? 'text-foreground' : isDone ? 'text-accent' : 'text-subtle')}>
+                      {s.label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        }
+        if (confirmingPurchase) {
+          return (
+            <div className="flex-1 space-y-3 rounded-lg border border-border bg-surface px-4 py-3">
+              <p className="text-sm text-muted">
+                Confirm purchase: <span className="font-medium text-foreground">{formatPrice(vault.price)}</span>
+                <span className="block text-xs text-subtle mt-1">You will sign a transaction to mint a license token (gas required).</span>
+              </p>
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" onClick={handlePurchase}>
+                  Confirm Purchase
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmingPurchase(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        return (
           <Button variant="primary" size="md" onClick={() => setConfirmingPurchase(true)} className="flex-1">
             <PricetagIcon className="h-4 w-4 mr-2" />
             Buy & Unlock · {formatPrice(vault.price)}
           </Button>
-        </>
-      )
+        )
+      })()
     ) : hasSessionKey ? (
       <Button variant="primary" size="md" onClick={handleDecrypt} className="flex-1">
         <EyeIcon className="h-4 w-4 mr-2" />
         Decrypt & View
       </Button>
-    ) : (
-      <Button variant="secondary" size="md"
-        onClick={() => {
-          const params = new URLSearchParams({ vaultId: String(uuid) })
-          if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
-          router.push(`/unlock?${params}`)
-        }}
-        className="flex-1"
-      >
-        Unlock Vault First
+        ) : (
+        <Button variant="secondary" size="md"
+          onClick={() => {
+            const params = new URLSearchParams({ vaultId: String(uuid) })
+            const tokenId = buyerLicenseTokenId || vault.licenseTokenId
+            if (tokenId) params.set('licenseTokenId', tokenId)
+            router.push(`/unlock?${params}`)
+          }}
+          className="flex-1"
+        >
+          Unlock Vault First
       </Button>
     )}
   </div>
