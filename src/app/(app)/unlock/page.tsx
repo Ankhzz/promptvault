@@ -18,12 +18,9 @@ import { createPublicClient, createWalletClient, custom, http, type Address, toH
 import { recordVaultAccess, getVaultEncryptedDataKey, getVaultByUuid, getPurchase } from '@/db/queries'
 import {
   decryptDataKeyForWallet,
-  EIP712_DOMAIN,
-  EIP712_TYPES,
-  EIP712_PRIMARY_TYPE,
-  buildEIP712Message,
   type EncryptedDataKey,
   type SignTypedDataFn,
+  type SignMessageFn,
 } from '@/lib/crypto/datakey-encryption'
 import { parseTxError } from '@/lib/parseTxError'
 
@@ -31,6 +28,10 @@ type AccessState = 'idle' | 'accessing' | 'done'
 type UnlockMethod = 'cdr_threshold' | 'local_recovery'
 
 const DATAKEY_SESSION_PREFIX = 'pv-datakey-'
+
+function sessionKey(uuid: number, address: string): string {
+  return `${DATAKEY_SESSION_PREFIX}${address.toLowerCase()}-${uuid}`
+}
 
 export default function UnlockVaultPage() {
   return (
@@ -61,11 +62,11 @@ function UnlockVaultContent() {
   const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
   const isAccessingRef = useRef(false)
 
-  const storeKeyAndFinish = useCallback((keyHex: string, uuid: number, method: UnlockMethod, txHash?: string) => {
+  const storeKeyAndFinish = useCallback((keyHex: string, uuid: number, method: UnlockMethod, address: string, txHash?: string) => {
     let keyStored = false
     try {
-      sessionStorage.setItem(`${DATAKEY_SESSION_PREFIX}${uuid}`, keyHex)
-      keyStored = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`) === keyHex
+      sessionStorage.setItem(sessionKey(uuid, address), keyHex)
+      keyStored = sessionStorage.getItem(sessionKey(uuid, address)) === keyHex
     } catch {}
 
     if (!keyStored) {
@@ -148,7 +149,7 @@ const accessVaultCDR = useCallback(async () => {
       })
 
       const keyHex = toHex(result.dataKey)
-      storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', result.txHash ?? undefined)
+      storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', clients.address, result.txHash ?? undefined)
       addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
 
       recordVaultAccess({
@@ -225,9 +226,13 @@ const accessVaultCDR = useCallback(async () => {
         })
       }
 
-      const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn)
+      const signMessageFn: SignMessageFn = async (message) => {
+        return clients.walletClient.signMessage({ message })
+      }
+
+      const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
       const keyHex = toHex(dataKey)
-    storeKeyAndFinish(keyHex, vaultId, 'local_recovery')
+    storeKeyAndFinish(keyHex, vaultId, 'local_recovery', clients.address)
     addToast({ title: 'Vault unlocked!', description: 'Data key recovered from local backup', variant: 'accent' })
 
     recordVaultAccess({

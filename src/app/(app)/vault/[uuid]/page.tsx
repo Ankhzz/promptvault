@@ -35,6 +35,10 @@ type ActivityData = Awaited<ReturnType<typeof getVaultActivity>>
 
 const DATAKEY_SESSION_PREFIX = 'pv-datakey-'
 
+function sessionKey(uuid: number, address: string): string {
+  return `${DATAKEY_SESSION_PREFIX}${address.toLowerCase()}-${uuid}`
+}
+
 const statusConfig: Record<string, { badge: 'accent' | 'default' | 'warning' | 'destructive'; label: string }> = {
   creating: { badge: 'warning', label: 'Creating' },
   active: { badge: 'accent', label: 'Active' },
@@ -113,7 +117,7 @@ export default function VaultDetailPage() {
   }, [uuid, address])
 
   useEffect(() => {
-    setHasSessionKey(!!sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`))
+    setHasSessionKey(!!(address && sessionStorage.getItem(sessionKey(uuid, address))))
   }, [uuid])
 
   useEffect(() => {
@@ -130,7 +134,7 @@ export default function VaultDetailPage() {
       return
     }
 
-  const keyHex = sessionStorage.getItem(`${DATAKEY_SESSION_PREFIX}${uuid}`)
+  const keyHex = address ? sessionStorage.getItem(sessionKey(uuid, address)) : null
   if (!keyHex) {
     if (needsPurchase) {
       addToast({ title: 'Purchase required', description: 'Buy this vault first to access content', variant: 'warning' })
@@ -174,7 +178,7 @@ export default function VaultDetailPage() {
     } finally {
       isDecryptingRef.current = false
     }
-  }, [vault, uuid, addToast, router, needsPurchase, buyerLicenseTokenId])
+  }, [vault, uuid, addToast, router, needsPurchase, buyerLicenseTokenId, address])
 
   const handleDownload = useCallback(() => {
     if (!decryptedFile) return

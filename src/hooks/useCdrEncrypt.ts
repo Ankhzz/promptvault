@@ -10,7 +10,7 @@ import {
 } from '@/lib/cdr';
 import {
   encryptDataKeyForWallet,
-  type EncryptedDataKeyV2,
+  type EncryptedDataKey,
   type SignTypedDataFn,
   EIP712_DOMAIN,
   EIP712_TYPES,
@@ -28,7 +28,7 @@ interface UploadVaultResult {
   success: boolean;
   uuid?: number;
   dataKeyHex?: `0x${string}`;
-  encryptedDataKey?: EncryptedDataKeyV2;
+  encryptedDataKey?: EncryptedDataKey;
   txHashes?: {
     allocate?: `0x${string}`;
     write?: `0x${string}`;

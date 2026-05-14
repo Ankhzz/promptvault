@@ -24,6 +24,15 @@ export const EIP712_TYPES = {
 
 export const EIP712_PRIMARY_TYPE = 'EncryptDataKey' as const
 
+export function buildEIP712Domain(chainId: number): EIP712Domain {
+  return {
+    name: EIP712_DOMAIN.name,
+    version: EIP712_DOMAIN.version,
+    chainId,
+    verifyingContract: EIP712_DOMAIN.verifyingContract,
+  }
+}
+
 export interface EncryptedDataKeyV1 {
   v: 1
   ciphertext: string
@@ -74,33 +83,70 @@ export async function encryptDataKeyForWallet(
   dataKey: Uint8Array,
   walletAddress: string,
   signTypedDataFn: SignTypedDataFn,
-): Promise<EncryptedDataKeyV2> {
-  const message = buildEIP712Message(walletAddress)
-  const signature = await signTypedDataFn({
-    domain: EIP712_DOMAIN,
-    types: EIP712_TYPES,
-    primaryType: EIP712_PRIMARY_TYPE,
-    message,
-  })
+  signMessageFn?: SignMessageFn,
+  chainId: number = EIP712_DOMAIN.chainId,
+): Promise<EncryptedDataKey> {
+  try {
+    const message = buildEIP712Message(walletAddress)
+    const domain = buildEIP712Domain(chainId)
+    const signature = await signTypedDataFn({
+      domain,
+      types: EIP712_TYPES,
+      primaryType: EIP712_PRIMARY_TYPE,
+      message,
+    })
 
-  const aesKey = await deriveAesKeyFromEIP712Signature(signature, walletAddress)
-  const iv = new Uint8Array(12)
-  crypto.getRandomValues(iv)
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
-    aesKey,
-    dataKey.buffer as ArrayBuffer,
-  )
+    const aesKey = await deriveAesKeyFromEIP712Signature(signature, walletAddress)
+    const iv = new Uint8Array(12)
+    crypto.getRandomValues(iv)
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+      aesKey,
+      dataKey.buffer as ArrayBuffer,
+    )
 
-  return {
-    v: 2,
-    ciphertext: arrayBufferToBase64(ciphertext),
-    iv: arrayBufferToBase64(iv.buffer as ArrayBuffer),
-    walletAddress: walletAddress.toLowerCase(),
-    eip712Domain: {
-      chainId: EIP712_DOMAIN.chainId,
-      verifyingContract: EIP712_DOMAIN.verifyingContract,
-    },
+    return {
+      v: 2,
+      ciphertext: arrayBufferToBase64(ciphertext),
+      iv: arrayBufferToBase64(iv.buffer as ArrayBuffer),
+      walletAddress: walletAddress.toLowerCase(),
+      eip712Domain: {
+        chainId: domain.chainId,
+        verifyingContract: domain.verifyingContract,
+      },
+    }
+  } catch (eip712Err) {
+    if (!signMessageFn) {
+      throw eip712Err
+    }
+    const errMsg = eip712Err instanceof Error ? eip712Err.message.toLowerCase() : ''
+    const isMethodNotSupported =
+      errMsg.includes('not supported') ||
+      errMsg.includes('not found') ||
+      errMsg.includes('not implemented') ||
+      errMsg.includes('method') ||
+      errMsg.includes('unsupported') ||
+      errMsg.includes('wallet')
+    if (!isMethodNotSupported) {
+      throw eip712Err
+    }
+
+    const signature = await signMessageFn(V1_SIGNATURE_MESSAGE)
+    const aesKey = await deriveAesKeyFromPersonalSign(signature, walletAddress)
+    const iv = new Uint8Array(12)
+    crypto.getRandomValues(iv)
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+      aesKey,
+      dataKey.buffer as ArrayBuffer,
+    )
+
+    return {
+      v: 1,
+      ciphertext: arrayBufferToBase64(ciphertext),
+      iv: arrayBufferToBase64(iv.buffer as ArrayBuffer),
+      walletAddress: walletAddress.toLowerCase(),
+    }
   }
 }
 
@@ -128,8 +174,9 @@ async function decryptDataKeyV2(
   signTypedDataFn: SignTypedDataFn,
 ): Promise<Uint8Array> {
   const message = buildEIP712Message(encrypted.walletAddress)
+  const domain = buildEIP712Domain(encrypted.eip712Domain.chainId)
   const signature = await signTypedDataFn({
-    domain: EIP712_DOMAIN,
+    domain,
     types: EIP712_TYPES,
     primaryType: EIP712_PRIMARY_TYPE,
     message,
