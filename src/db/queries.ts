@@ -1,10 +1,11 @@
 'use server'
 
-import { db } from '@/db'
 import { users, vaults, activity, licenseTokens, purchases } from '@/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
+import { getDb } from '@/db'
 
 export async function getOrCreateUser(walletAddress: string) {
+  const db = await getDb()
   const existing = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).get()
   if (existing) {
     await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.walletAddress, walletAddress))
@@ -30,6 +31,7 @@ export async function createVaultRecord(data: {
   registerTxHash?: string
   mintTxHash?: string
 }) {
+  const db = await getDb()
   await getOrCreateUser(data.ownerAddress)
   const result = await db.insert(vaults).values({
     ...data,
@@ -63,6 +65,7 @@ export async function recordVaultAccess(data: {
   txHash?: string
   blockNumber?: number
 }) {
+  const db = await getDb()
   await db.insert(activity).values({
     vaultUuid: data.vaultUuid,
     walletAddress: data.walletAddress,
@@ -78,6 +81,7 @@ export async function recordVaultAccess(data: {
 }
 
 export async function getUserVaults(walletAddress: string) {
+  const db = await getDb()
   return db.select().from(vaults)
     .where(eq(vaults.ownerAddress, walletAddress))
     .orderBy(desc(vaults.createdAt))
@@ -86,10 +90,12 @@ export async function getUserVaults(walletAddress: string) {
 }
 
 export async function getVaultByUuid(uuid: number) {
+  const db = await getDb()
   return db.select().from(vaults).where(eq(vaults.uuid, uuid)).get()
 }
 
 export async function getVaultLicenseTokens(vaultUuid: number) {
+  const db = await getDb()
   return db.select().from(licenseTokens)
     .where(eq(licenseTokens.vaultUuid, vaultUuid))
     .orderBy(desc(licenseTokens.createdAt))
@@ -97,6 +103,7 @@ export async function getVaultLicenseTokens(vaultUuid: number) {
 }
 
 export async function getVaultActivity(vaultUuid: number, limit = 20) {
+  const db = await getDb()
   return db.select().from(activity)
     .where(eq(activity.vaultUuid, vaultUuid))
     .orderBy(desc(activity.createdAt))
@@ -105,6 +112,7 @@ export async function getVaultActivity(vaultUuid: number, limit = 20) {
 }
 
 export async function getUserActivity(walletAddress: string, limit = 50) {
+  const db = await getDb()
   return db.select().from(activity)
     .where(eq(activity.walletAddress, walletAddress))
     .orderBy(desc(activity.createdAt))
@@ -113,11 +121,13 @@ export async function getUserActivity(walletAddress: string, limit = 50) {
 }
 
 export async function vaultExists(uuid: number) {
+  const db = await getDb()
   const row = await db.select({ uuid: vaults.uuid }).from(vaults).where(eq(vaults.uuid, uuid)).get()
   return !!row
 }
 
 export async function getVaultEncryptedDataKey(uuid: number) {
+  const db = await getDb()
   const row = await db.select({
     encryptedDataKey: vaults.encryptedDataKey,
     dataKeyEncryptionMeta: vaults.dataKeyEncryptionMeta,
@@ -129,6 +139,7 @@ export async function getVaultEncryptedDataKey(uuid: number) {
 }
 
 export async function getUserStats(walletAddress: string) {
+  const db = await getDb()
   const [vaultCount, activeCount, accessedCount, licenseCount, accessCount] = await Promise.all([
     db.select({ value: sql<number>`count(*)` }).from(vaults)
       .where(eq(vaults.ownerAddress, walletAddress)).get(),
@@ -152,6 +163,7 @@ export async function getUserStats(walletAddress: string) {
 }
 
 export async function setVaultPrice(uuid: number, price: number | null) {
+  const db = await getDb()
   await db.update(vaults)
     .set({ price, updatedAt: new Date() })
     .where(eq(vaults.uuid, uuid))
@@ -159,6 +171,7 @@ export async function setVaultPrice(uuid: number, price: number | null) {
 }
 
 export async function setVaultForSale(uuid: number, isForSale: boolean) {
+  const db = await getDb()
   const updates: Partial<typeof vaults.$inferInsert> = { isForSale, updatedAt: new Date() }
   if (!isForSale) updates.price = null
   await db.update(vaults)
@@ -167,25 +180,60 @@ export async function setVaultForSale(uuid: number, isForSale: boolean) {
     .run()
 }
 
-export async function purchaseVault(vaultUuid: number, buyerAddress: string) {
+export async function purchaseVault(
+  vaultUuid: number,
+  buyerAddress: string,
+  buyerLicenseTokenId: string,
+  mintTxHash: string,
+) {
+  const db = await getDb()
   await getOrCreateUser(buyerAddress)
   const existing = await db.select().from(purchases)
     .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
     .get()
   if (existing) return existing
-  return db.insert(purchases).values({ vaultUuid, buyerAddress }).returning().get()
+  return db.insert(purchases).values({
+    vaultUuid,
+    buyerAddress,
+    buyerLicenseTokenId,
+    mintTxHash,
+    paid: true,
+    createdAt: new Date(),
+  }).returning().get()
 }
 
 export async function getPurchase(vaultUuid: number, buyerAddress: string) {
+  const db = await getDb()
   return db.select().from(purchases)
     .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
     .get()
 }
 
 export async function getPurchasesForBuyer(buyerAddress: string) {
+  const db = await getDb()
   return db.select().from(purchases)
     .where(eq(purchases.buyerAddress, buyerAddress))
-    .orderBy(desc(purchases.createdAt))
-    .limit(100)
+  .orderBy(desc(purchases.createdAt))
+  .limit(100)
+  .all()
+}
+
+export async function getVaultsForSale(limit = 50, offset = 0) {
+  const db = await getDb()
+  return db.select({
+    uuid: vaults.uuid,
+    name: vaults.name,
+    description: vaults.description,
+    price: vaults.price,
+    ownerAddress: vaults.ownerAddress,
+    ipId: vaults.ipId,
+    status: vaults.status,
+    createdAt: vaults.createdAt,
+    updatedAt: vaults.updatedAt,
+  }).from(vaults)
+    .where(eq(vaults.isForSale, true))
+    .orderBy(desc(vaults.updatedAt))
+    .limit(limit)
+    .offset(offset)
     .all()
 }
