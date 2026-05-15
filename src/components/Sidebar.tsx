@@ -7,7 +7,7 @@ import { VaultIcon, GridIcon, ActivityIcon, PlusIcon, ShieldIcon, UnlockIcon, XI
 import { WalletStatus } from '@/components/WalletStatus'
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: GridIcon },
+  { href: '/dashboard', label: 'Dashboard', icon: GridIcon },
   { href: '/my-vaults', label: 'My Vaults', icon: VaultIcon },
   { href: '/explore', label: 'Explore', icon: GlobeIcon },
   { href: '/faucet', label: 'Faucet', icon: DropletIcon },
