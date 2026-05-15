@@ -1,19 +1,25 @@
-import { sqliteTable, text, integer, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, pgEnum } from 'drizzle-orm/pg-core'
 
-export const users = sqliteTable('users', {
+export const vaultStatusEnum = pgEnum('vault_status', ['creating', 'active', 'accessed', 'failed'])
+export const vaultTypeEnum = pgEnum('vault_type', ['licensed', 'private'])
+export const activityTypeEnum = pgEnum('activity_type', ['vault_created', 'license_minted', 'vault_accessed', 'vault_shared', 'ip_registered'])
+export const licenseTokenStatusEnum = pgEnum('license_token_status', ['active', 'revoked', 'expired'])
+
+export const users = pgTable('users', {
   walletAddress: text('wallet_address').primaryKey(),
   ensName: text('ens_name'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  lastSeenAt: integer('last_seen_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const vaults = sqliteTable('vaults', {
-  uuid: integer('uuid').primaryKey(),
+export const vaults = pgTable('vaults', {
+  uuid: serial('uuid').primaryKey(),
   ownerAddress: text('owner_address').notNull().references(() => users.walletAddress),
   name: text('name').notNull(),
   description: text('description'),
-  ipId: text('ip_id').notNull(),
-  licenseTermsId: integer('license_terms_id').notNull(),
+  vaultType: vaultTypeEnum('vault_type').notNull().default('licensed'),
+  ipId: text('ip_id'),
+  licenseTermsId: integer('license_terms_id'),
   licenseTokenId: text('license_token_id'),
   ipfsCid: text('ipfs_cid'),
   encryptedFileMeta: text('encrypted_file_meta'),
@@ -23,26 +29,27 @@ export const vaults = sqliteTable('vaults', {
   writeTxHash: text('write_tx_hash'),
   registerTxHash: text('register_tx_hash'),
   mintTxHash: text('mint_tx_hash'),
-  status: text('status', { enum: ['creating', 'active', 'accessed', 'failed'] }).notNull().$defaultFn(() => 'creating'),
+  status: vaultStatusEnum('status').notNull().default('creating'),
   price: integer('price'),
-  isForSale: integer('is_for_sale', { mode: 'boolean' }).notNull().default(false).$defaultFn(() => false),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  isForSale: boolean('is_for_sale').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_vaults_owner').on(table.ownerAddress),
   index('idx_vaults_ip_id').on(table.ipId),
   index('idx_vaults_status').on(table.status),
+  index('idx_vaults_type').on(table.vaultType),
 ])
 
-export const activity = sqliteTable('activity', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const activity = pgTable('activity', {
+  id: serial('id').primaryKey(),
   vaultUuid: integer('vault_uuid').notNull().references(() => vaults.uuid),
   walletAddress: text('wallet_address').notNull().references(() => users.walletAddress),
-  type: text('type', { enum: ['vault_created', 'license_minted', 'vault_accessed', 'vault_shared', 'ip_registered'] }).notNull(),
+  type: activityTypeEnum('type').notNull(),
   txHash: text('tx_hash'),
   details: text('details'),
   blockNumber: integer('block_number'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_activity_wallet').on(table.walletAddress),
   index('idx_activity_vault').on(table.vaultUuid),
@@ -50,28 +57,29 @@ export const activity = sqliteTable('activity', {
   index('idx_activity_created').on(table.createdAt),
 ])
 
-export const purchases = sqliteTable('purchases', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const purchases = pgTable('purchases', {
+  id: serial('id').primaryKey(),
   vaultUuid: integer('vault_uuid').notNull().references(() => vaults.uuid),
   buyerAddress: text('buyer_address').notNull().references(() => users.walletAddress),
   buyerLicenseTokenId: text('buyer_license_token_id'),
   mintTxHash: text('mint_tx_hash'),
-  paid: integer('paid', { mode: 'boolean' }).notNull().default(true).$defaultFn(() => true),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  encryptedDataKey: text('encrypted_data_key'),
+  paid: boolean('paid').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('idx_purchases_vault_buyer').on(table.vaultUuid, table.buyerAddress),
   index('idx_purchases_buyer').on(table.buyerAddress),
 ])
 
-export const licenseTokens = sqliteTable('license_tokens', {
+export const licenseTokens = pgTable('license_tokens', {
   tokenId: text('token_id').primaryKey(),
   vaultUuid: integer('vault_uuid').notNull().references(() => vaults.uuid),
   ownerAddress: text('owner_address').notNull().references(() => users.walletAddress),
   ipId: text('ip_id').notNull(),
   licenseTermsId: integer('license_terms_id').notNull(),
   mintTxHash: text('mint_tx_hash'),
-  status: text('status', { enum: ['active', 'revoked', 'expired'] }).notNull().$defaultFn(() => 'active'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  status: licenseTokenStatusEnum('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_license_tokens_owner').on(table.ownerAddress),
   index('idx_license_tokens_vault').on(table.vaultUuid),
