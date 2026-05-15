@@ -13,7 +13,7 @@ import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
 import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
-import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
+import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
 import { custom as viemCustom, Account } from 'viem'
 import { StoryClient, StoryConfig, PILFlavor } from '@story-protocol/core-sdk'
 import { createVaultRecord } from '@/db/queries'
@@ -28,6 +28,7 @@ import {
 import { encryptFile, uploadToLighthouse, type EncryptedFile } from '@/lib/encrypt-file'
 
 type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_file' | 'encrypt_key' | 'persist' | 'done'
+type VaultType = 'licensed' | 'private'
 
 interface StepResult {
   ipId?: Address
@@ -59,6 +60,7 @@ export default function CreateVaultPage() {
   const [retrying, setRetrying] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [vaultType, setVaultType] = useState<VaultType>('licensed')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const getClients = useCallback(async () => {
@@ -91,83 +93,105 @@ export default function CreateVaultPage() {
       return
     }
 
-  isRunningRef.current = true
+    isRunningRef.current = true
 
-  if (selectedFile && !process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY) {
-    isRunningRef.current = false
-    addToast({ title: 'Lighthouse API key missing', description: 'Set NEXT_PUBLIC_LIGHTHOUSE_API_KEY before creating a vault with a file', variant: 'destructive' })
-    return
-  }
+    if (selectedFile && !process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY) {
+      isRunningRef.current = false
+      addToast({ title: 'Lighthouse API key missing', description: 'Set NEXT_PUBLIC_LIGHTHOUSE_API_KEY before creating a vault with a file', variant: 'destructive' })
+      return
+    }
 
-  const txHashes: string[] = []
+    const txHashes: string[] = []
     let ipfsCid: string | undefined
     let encryptedFileMeta: string | undefined
 
     try {
-      setStep('register')
-      addToast({ title: 'Registering IP Asset...', variant: 'default' })
+      if (vaultType === 'licensed') {
+        await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+      } else {
+        await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+      }
+    } catch (err) {
+      const parsed = parseTxError(err)
+      setStep('idle')
+      isRunningRef.current = false
+      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+    }
+  }, [name, vaultType, getClients, addToast, selectedFile])
 
-      const ipResult = await clients.storyClient.ipAsset.registerIpAsset({
-        nft: { type: 'mint', spgNftContract: CONTRACTS.SPG_NFT_CONTRACT },
-        licenseTermsData: [{ terms: PILFlavor.nonCommercialSocialRemixing() }],
-        ipMetadata: {
-          ipMetadataURI: `https://promptvault.xyz/metadata/${name.trim().toLowerCase().replace(/\s+/g, '-')}`,
-          ipMetadataHash: `0x${'ab'.repeat(32)}` as `0x${string}`,
-          nftMetadataURI: `https://promptvault.xyz/nft/${name.trim().toLowerCase().replace(/\s+/g, '-')}`,
-          nftMetadataHash: `0x${'cd'.repeat(32)}` as `0x${string}`,
-        },
-      })
+  const runLicensedFlow = useCallback(async (
+    clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
+    txHashes: string[],
+    _ipfsCid: string | undefined,
+    _encryptedFileMeta: string | undefined,
+  ) => {
+    setStep('register')
+    addToast({ title: 'Registering IP Asset...', variant: 'default' })
 
-      const ipId = ipResult.ipId as Address
-      const licenseTermsId = Number(ipResult.licenseTermsIds?.[0])
-      txHashes.push(ipResult.txHash!)
-      setResult(prev => ({ ...prev, ipId, licenseTermsId }))
+    const ipResult = await clients.storyClient.ipAsset.registerIpAsset({
+      nft: { type: 'mint', spgNftContract: CONTRACTS.SPG_NFT_CONTRACT },
+      licenseTermsData: [{ terms: PILFlavor.nonCommercialSocialRemixing() }],
+      ipMetadata: {
+        ipMetadataURI: `https://promptvault.xyz/metadata/${name.trim().toLowerCase().replace(/\s+/g, '-')}`,
+        ipMetadataHash: `0x${'ab'.repeat(32)}` as `0x${string}`,
+        nftMetadataURI: `https://promptvault.xyz/nft/${name.trim().toLowerCase().replace(/\s+/g, '-')}`,
+        nftMetadataHash: `0x${'cd'.repeat(32)}` as `0x${string}`,
+      },
+    })
 
-      setStep('mint')
-      addToast({ title: 'Minting license token...', variant: 'default' })
+    const ipId = ipResult.ipId as Address
+    const licenseTermsId = Number(ipResult.licenseTermsIds?.[0])
+    txHashes.push(ipResult.txHash!)
+    setResult(prev => ({ ...prev, ipId, licenseTermsId }))
 
-      const licResult = await clients.storyClient.license.mintLicenseTokens({
-        licensorIpId: ipId,
-        licenseTermsId,
-        amount: 1,
-      })
+    setStep('mint')
+    addToast({ title: 'Minting license token...', variant: 'default' })
 
-      const licenseTokenId = licResult.licenseTokenIds?.[0]
-      txHashes.push(licResult.txHash!)
-      setResult(prev => ({ ...prev, licenseTokenId }))
+    const licResult = await clients.storyClient.license.mintLicenseTokens({
+      licensorIpId: ipId,
+      licenseTermsId,
+      amount: 1,
+    })
 
-      setStep('upload')
-      addToast({ title: 'Encrypting & uploading vault...', variant: 'default' })
+    const licenseTokenId = licResult.licenseTokenIds?.[0]
+    txHashes.push(licResult.txHash!)
+    setResult(prev => ({ ...prev, licenseTokenId }))
 
-      await initWasm()
+    setStep('upload')
+    addToast({ title: 'Encrypting & uploading vault...', variant: 'default' })
 
-      const cdrClient = new CDRClient({
-        network: CDR_CONFIG.network,
-        publicClient: clients.publicClient,
-        walletClient: clients.walletClient,
-        cometRpcUrl: getCometRpcUrl(),
-        validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
-      })
+    await initWasm()
 
-      const globalPubKey = await cdrClient.observer.getGlobalPubKey()
-      const dataKey = crypto.getRandomValues(new Uint8Array(32))
+    const cdrClient = new CDRClient({
+      network: CDR_CONFIG.network,
+      publicClient: clients.publicClient,
+      walletClient: clients.walletClient,
+      cometRpcUrl: getCometRpcUrl(),
+      validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
+    })
 
-      const readConditionData = encodeLicenseReadCondition(ipId)
-      const writeConditionData = encodeWriteConditionData(clients.address)
+    const globalPubKey = await cdrClient.observer.getGlobalPubKey()
+    const dataKey = crypto.getRandomValues(new Uint8Array(32))
 
-      const uploadResult = await cdrClient.uploader.uploadCDR({
-        dataKey,
-        globalPubKey,
-        updatable: false,
-        writeConditionAddr: CDR_CONDITIONS.writeCondition,
-        readConditionAddr: CDR_CONDITIONS.readCondition,
-        writeConditionData,
-        readConditionData,
-        accessAuxData: '0x',
-      })
+    const readConditionData = encodeLicenseReadCondition(ipId)
+    const writeConditionData = encodeWriteConditionData(clients.address)
 
-      txHashes.push(uploadResult.txHashes.allocate)
-      txHashes.push(uploadResult.txHashes.write)
+    const uploadResult = await cdrClient.uploader.uploadCDR({
+      dataKey,
+      globalPubKey,
+      updatable: false,
+      writeConditionAddr: CDR_CONDITIONS.writeCondition,
+      readConditionAddr: CDR_CONDITIONS.readCondition,
+      writeConditionData,
+      readConditionData,
+      accessAuxData: '0x',
+    })
+
+    txHashes.push(uploadResult.txHashes.allocate)
+    txHashes.push(uploadResult.txHashes.write)
+
+    let ipfsCid: string | undefined
+    let encryptedFileMeta: string | undefined
 
     if (selectedFile) {
       setStep('encrypt_file')
@@ -177,90 +201,226 @@ export default function CreateVaultPage() {
       encryptedFileMeta = JSON.stringify(encrypted)
 
       ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
-        setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
-      }
-
-      setStep('encrypt_key')
-      addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
-
-      const signTypedDataFn = async (params: {
-        domain: typeof EIP712_DOMAIN
-        types: typeof EIP712_TYPES
-        primaryType: 'EncryptDataKey'
-        message: { wallet: Address; purpose: string; version: bigint }
-      }) => {
-        return clients.walletClient.signTypedData({
-          domain: params.domain,
-          types: params.types,
-          primaryType: params.primaryType,
-          message: params.message,
-        })
-      }
-
-      const encryptedDataKey = await encryptDataKeyForWallet(
-        dataKey,
-        clients.address,
-        signTypedDataFn,
-      )
-
-      setResult(prev => ({
-        ...prev,
-        vaultUuid: uploadResult.uuid,
-        txHashes,
-        encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
-        dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
-        allocateTxHash: uploadResult.txHashes.allocate,
-        writeTxHash: uploadResult.txHashes.write,
-        registerTxHash: ipResult.txHash ?? undefined,
-        mintTxHash: licResult.txHash ?? undefined,
-      }))
-
-      setStep('persist')
-      addToast({ title: 'Saving vault record...', variant: 'default' })
-
-      try {
-        await createVaultRecord({
-          uuid: uploadResult.uuid,
-          ownerAddress: clients.address,
-          name: name.trim(),
-          description: description.trim() || undefined,
-          ipId,
-          licenseTermsId,
-          licenseTokenId: licenseTokenId?.toString(),
-          ipfsCid,
-          encryptedFileMeta,
-          encryptedDataKey: JSON.stringify(encryptedDataKey),
-          dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
-          allocateTxHash: uploadResult.txHashes.allocate,
-          writeTxHash: uploadResult.txHashes.write,
-          registerTxHash: ipResult.txHash!,
-          mintTxHash: licResult.txHash!,
-        })
-        setResult(prev => ({ ...prev, dbPersisted: true }))
-      } catch (dbErr) {
-        setResult(prev => ({ ...prev, dbPersisted: false }))
-        addToast({
-          title: 'DB save failed',
-          description: 'Vault is on-chain but local record failed. You can retry from dashboard.',
-          variant: 'warning',
-        })
-      }
-
-      setStep('done')
-      isRunningRef.current = false
-      addToast({ title: 'Vault created!', description: `UUID: ${uploadResult.uuid}`, variant: 'accent' })
-    } catch (err) {
-      const parsed = parseTxError(err)
-      setStep('idle')
-      isRunningRef.current = false
-      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+      setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
-  }, [name, getClients, addToast, selectedFile])
+
+    setStep('encrypt_key')
+    addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
+
+    const signTypedDataFn = async (params: {
+      domain: typeof EIP712_DOMAIN
+      types: typeof EIP712_TYPES
+      primaryType: 'EncryptDataKey'
+      message: { wallet: Address; purpose: string; version: bigint }
+    }) => {
+      return clients.walletClient.signTypedData({
+        domain: params.domain,
+        types: params.types,
+        primaryType: params.primaryType,
+        message: params.message,
+      })
+    }
+
+    const encryptedDataKey = await encryptDataKeyForWallet(
+      dataKey,
+      clients.address,
+      signTypedDataFn,
+    )
+
+    setResult(prev => ({
+      ...prev,
+      vaultUuid: uploadResult.uuid,
+      txHashes,
+      encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
+      dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+      registerTxHash: ipResult.txHash ?? undefined,
+      mintTxHash: licResult.txHash ?? undefined,
+    }))
+
+    await persistVault({
+      uuid: uploadResult.uuid,
+      ownerAddress: clients.address,
+      ipId,
+      licenseTermsId,
+      licenseTokenId: licenseTokenId?.toString(),
+      ipfsCid,
+      encryptedFileMeta,
+      encryptedDataKey,
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+      registerTxHash: ipResult.txHash!,
+      mintTxHash: licResult.txHash!,
+    })
+  }, [name, description, selectedFile, addToast])
+
+  const runPrivateFlow = useCallback(async (
+    clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
+    txHashes: string[],
+    _ipfsCid: string | undefined,
+    _encryptedFileMeta: string | undefined,
+  ) => {
+    setStep('upload')
+    addToast({ title: 'Encrypting & uploading private vault...', variant: 'default' })
+
+    await initWasm()
+
+    const cdrClient = new CDRClient({
+      network: CDR_CONFIG.network,
+      publicClient: clients.publicClient,
+      walletClient: clients.walletClient,
+      cometRpcUrl: getCometRpcUrl(),
+      validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
+    })
+
+    const writeConditionData = encodeWriteConditionData(clients.address)
+    const readConditionData = '0x' as `0x${string}`
+
+    const { uuid, txHash: allocateTxHash } = await cdrClient.uploader.allocate({
+      updatable: false,
+      writeConditionAddr: CDR_CONDITIONS.writeCondition,
+      writeConditionData,
+      readConditionAddr: clients.address,
+      readConditionData,
+      skipConditionValidation: true,
+    })
+
+    txHashes.push(allocateTxHash)
+
+    const globalPubKey = await cdrClient.observer.getGlobalPubKey()
+    const dataKey = crypto.getRandomValues(new Uint8Array(32))
+
+    const { uuidToLabel } = await import('@piplabs/cdr-sdk')
+    const ciphertext = await cdrClient.uploader.encryptDataKey({
+      dataKey,
+      globalPubKey,
+      label: uuidToLabel(uuid),
+    })
+
+    const writeResult = await cdrClient.uploader.write({
+      uuid,
+      accessAuxData: '0x',
+      encryptedData: toHex(ciphertext.raw),
+    })
+
+    txHashes.push(writeResult.txHash)
+
+    let ipfsCid: string | undefined
+    let encryptedFileMeta: string | undefined
+
+    if (selectedFile) {
+      setStep('encrypt_file')
+      addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
+
+      const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
+      encryptedFileMeta = JSON.stringify(encrypted)
+
+      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
+      setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
+    }
+
+    setStep('encrypt_key')
+    addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
+
+    const signTypedDataFn = async (params: {
+      domain: typeof EIP712_DOMAIN
+      types: typeof EIP712_TYPES
+      primaryType: 'EncryptDataKey'
+      message: { wallet: Address; purpose: string; version: bigint }
+    }) => {
+      return clients.walletClient.signTypedData({
+        domain: params.domain,
+        types: params.types,
+        primaryType: params.primaryType,
+        message: params.message,
+      })
+    }
+
+    const encryptedDataKey = await encryptDataKeyForWallet(
+      dataKey,
+      clients.address,
+      signTypedDataFn,
+    )
+
+    setResult(prev => ({
+      ...prev,
+      vaultUuid: uuid,
+      txHashes,
+      encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
+      dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
+      allocateTxHash: allocateTxHash as string,
+      writeTxHash: writeResult.txHash,
+    }))
+
+    await persistVault({
+      uuid,
+      ownerAddress: clients.address,
+      ipfsCid,
+      encryptedFileMeta,
+      encryptedDataKey,
+      allocateTxHash: allocateTxHash as string,
+      writeTxHash: writeResult.txHash,
+    })
+  }, [name, description, selectedFile, addToast])
+
+  const persistVault = useCallback(async (params: {
+    uuid: number
+    ownerAddress: Address
+    ipId?: Address
+    licenseTermsId?: number
+    licenseTokenId?: string
+    ipfsCid?: string
+    encryptedFileMeta?: string
+    encryptedDataKey: Awaited<ReturnType<typeof encryptDataKeyForWallet>>
+    allocateTxHash: string
+    writeTxHash: string
+    registerTxHash?: string
+    mintTxHash?: string
+  }) => {
+    setStep('persist')
+    addToast({ title: 'Saving vault record...', variant: 'default' })
+
+    try {
+      await createVaultRecord({
+        uuid: params.uuid,
+        ownerAddress: params.ownerAddress,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        vaultType,
+        ipId: params.ipId,
+        licenseTermsId: params.licenseTermsId,
+        licenseTokenId: params.licenseTokenId,
+        ipfsCid: params.ipfsCid,
+        encryptedFileMeta: params.encryptedFileMeta,
+        encryptedDataKey: JSON.stringify(params.encryptedDataKey),
+        dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
+        allocateTxHash: params.allocateTxHash,
+        writeTxHash: params.writeTxHash,
+        registerTxHash: params.registerTxHash,
+        mintTxHash: params.mintTxHash,
+      })
+      setResult(prev => ({ ...prev, dbPersisted: true }))
+    } catch (dbErr) {
+      setResult(prev => ({ ...prev, dbPersisted: false }))
+      addToast({
+        title: 'DB save failed',
+        description: 'Vault is on-chain but local record failed. You can retry from dashboard.',
+        variant: 'warning',
+      })
+    }
+
+    setStep('done')
+    isRunningRef.current = false
+    addToast({ title: 'Vault created!', description: `UUID: ${params.uuid}`, variant: 'accent' })
+  }, [name, description, vaultType, addToast])
 
   const stepItems = [
-    { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
-    { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
-    { key: 'upload' as Step, label: 'Encrypt & Upload CDR', done: !!result.vaultUuid },
+    ...(vaultType === 'licensed' ? [
+      { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
+      { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
+    ] : []),
+    { key: 'upload' as Step, label: vaultType === 'private' ? 'Encrypt & Upload Private CDR' : 'Encrypt & Upload CDR', done: !!result.vaultUuid },
     ...(selectedFile ? [
       { key: 'encrypt_file' as Step, label: 'Encrypt File & Upload IPFS', done: !!result.ipfsCid },
     ] : []),
@@ -281,9 +441,11 @@ export default function CreateVaultPage() {
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Create Vault</h1>
-          <p className="mt-2 text-muted text-base">
-            Register an IP asset, mint a license token, and encrypt your content in a single flow.
-          </p>
+        <p className="mt-2 text-muted text-base">
+          {vaultType === 'licensed'
+            ? 'Register an IP asset, mint a license token, and encrypt your content in a single flow.'
+            : 'Create a private vault with owner-only EOA access — no IP registration needed.'}
+        </p>
         </div>
 
         <Card>
@@ -306,6 +468,56 @@ export default function CreateVaultPage() {
               onChange={(e) => setDescription(e.target.value)}
               disabled={step !== 'idle'}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldIcon className="h-5 w-5 text-accent" />
+              <CardTitle>Vault Type</CardTitle>
+            </div>
+            <CardDescription>
+              {vaultType === 'licensed'
+                ? 'Licensed vaults: register an IP asset + mint license tokens for access gating'
+                : 'Private vaults: owner-only access via EOA, no IP registration needed'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={step !== 'idle'}
+                onClick={() => setVaultType('licensed')}
+                className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
+                  vaultType === 'licensed'
+                    ? 'border-accent bg-accent-muted'
+                    : 'border-border bg-surface hover:border-border/80'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldIcon className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-semibold text-foreground">Licensed</span>
+                </div>
+                <span className="text-xs text-muted">IP registration + license tokens gate access</span>
+              </button>
+              <button
+                type="button"
+                disabled={step !== 'idle'}
+                onClick={() => setVaultType('private')}
+                className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
+                  vaultType === 'private'
+                    ? 'border-accent bg-accent-muted'
+                    : 'border-border bg-surface hover:border-border/80'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <LockIcon className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-semibold text-foreground">Private</span>
+                </div>
+                <span className="text-xs text-muted">Owner-only EOA access, no on-chain licensing</span>
+              </button>
+            </div>
           </CardContent>
         </Card>
 
@@ -371,9 +583,9 @@ export default function CreateVaultPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ShieldIcon className="h-5 w-5 text-accent" />
-              <CardTitle>On-Chain Protection Flow</CardTitle>
-            </div>
-            <CardDescription>Transactions + data key encryption executed in sequence</CardDescription>
+        <CardTitle>{vaultType === 'licensed' ? 'On-Chain Protection Flow' : 'Private Encryption Flow'}</CardTitle>
+      </div>
+      <CardDescription>{vaultType === 'licensed' ? 'Transactions + data key encryption executed in sequence' : 'Allocate → encrypt → write + wallet key encryption'}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -439,9 +651,16 @@ export default function CreateVaultPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <DataRow label="Vault UUID" value={String(result.vaultUuid)} mono />
-              <DataRow label="IP Asset" value={result.ipId || ''} mono />
-              <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
-              <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
+              {vaultType === 'licensed' && (
+                <>
+                  <DataRow label="IP Asset" value={result.ipId || ''} mono />
+                  <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
+                  <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
+                </>
+              )}
+              {vaultType === 'private' && (
+                <DataRow label="Vault Type" value="Private (Owner-Only EOA)" mono={false} />
+              )}
               {result.ipfsCid && (
                 <DataRow label="IPFS CID" value={result.ipfsCid} mono />
               )}

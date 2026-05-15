@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
@@ -60,7 +60,18 @@ function UnlockVaultContent() {
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
   const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
+  const [vaultType, setVaultType] = useState<'licensed' | 'private' | null>(null)
   const isAccessingRef = useRef(false)
+
+  useEffect(() => {
+    if (vaultIdValid) {
+      getVaultByUuid(vaultId).then(v => {
+        setVaultType(v?.vaultType ?? null)
+      }).catch(() => setVaultType(null))
+    } else {
+      setVaultType(null)
+    }
+  }, [vaultId])
 
   const storeKeyAndFinish = useCallback((keyHex: string, uuid: number, method: UnlockMethod, address: string, txHash?: string) => {
     let keyStored = false
@@ -83,7 +94,7 @@ function UnlockVaultContent() {
     setState('done')
   }, [addToast])
 
-const accessVaultCDR = useCallback(async () => {
+  const accessVaultCDR = useCallback(async () => {
     if (isAccessingRef.current) return
     if (!vaultIdValid) {
       addToast({ title: 'Invalid Vault UUID', variant: 'warning' })
@@ -93,30 +104,42 @@ const accessVaultCDR = useCallback(async () => {
     isAccessingRef.current = true
     try {
       const vaultData = await getVaultByUuid(vaultId)
-      let resolvedLicenseTokenId = licenseTokenId
+      const isPrivate = vaultData?.vaultType === 'private'
 
-      if (vaultData?.isForSale) {
-        const walletAddr = wallets[0]?.address
-        if (walletAddr && vaultData.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
-          const purchase = await getPurchase(vaultId, walletAddr)
-          if (!purchase?.paid) {
-            setState('idle')
-            isAccessingRef.current = false
-            addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
-            router.push(`/vault/${vaultId}`)
-            return
-          }
-          if (purchase.buyerLicenseTokenId) {
-            resolvedLicenseTokenId = purchase.buyerLicenseTokenId
+      if (!isPrivate) {
+        let resolvedLicenseTokenId = licenseTokenId
+
+        if (vaultData?.isForSale) {
+          const walletAddr = wallets[0]?.address
+          if (walletAddr && vaultData.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
+            const purchase = await getPurchase(vaultId, walletAddr)
+            if (!purchase?.paid) {
+              setState('idle')
+              isAccessingRef.current = false
+              addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
+              router.push(`/vault/${vaultId}`)
+              return
+            }
+            if (purchase.buyerLicenseTokenId) {
+              resolvedLicenseTokenId = purchase.buyerLicenseTokenId
+            }
           }
         }
-      }
 
-      if (!resolvedLicenseTokenId) {
-        setState('idle')
-        isAccessingRef.current = false
-        addToast({ title: 'Missing License Token ID', description: 'Enter a valid License Token ID', variant: 'warning' })
-        return
+        if (!resolvedLicenseTokenId) {
+          setState('idle')
+          isAccessingRef.current = false
+          addToast({ title: 'Missing License Token ID', description: 'Enter a valid License Token ID', variant: 'warning' })
+          return
+        }
+      } else {
+        const walletAddr = wallets[0]?.address
+        if (walletAddr && vaultData?.ownerAddress && walletAddr.toLowerCase() !== vaultData.ownerAddress.toLowerCase()) {
+          setState('idle')
+          isAccessingRef.current = false
+          addToast({ title: 'Access denied', description: 'Only the vault owner can access a private vault', variant: 'destructive' })
+          return
+        }
       }
 
       const clients = await getWalletClients(wallets)
@@ -140,7 +163,7 @@ const accessVaultCDR = useCallback(async () => {
         validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
       })
 
-      const accessAuxData = encodeAccessAuxData(BigInt(resolvedLicenseTokenId))
+      const accessAuxData = isPrivate ? '0x' : encodeAccessAuxData(BigInt(licenseTokenId))
 
       const result = await cdrClient.consumer.accessCDR({
         uuid: vaultId,
@@ -175,20 +198,20 @@ const accessVaultCDR = useCallback(async () => {
 
     isAccessingRef.current = true
     try {
-      const vaultCheck = await getVaultByUuid(vaultId)
-      if (vaultCheck?.isForSale) {
-        const walletAddr = wallets[0]?.address
-        if (walletAddr && vaultCheck.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
-          const purchase = await getPurchase(vaultId, walletAddr)
-          if (!purchase?.paid) {
-            setState('idle')
-            isAccessingRef.current = false
-            addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
-            router.push(`/vault/${vaultId}`)
-            return
-          }
+    const vaultCheck = await getVaultByUuid(vaultId)
+    if (vaultCheck?.isForSale && vaultCheck?.vaultType !== 'private') {
+      const walletAddr = wallets[0]?.address
+      if (walletAddr && vaultCheck.ownerAddress.toLowerCase() !== walletAddr.toLowerCase()) {
+        const purchase = await getPurchase(vaultId, walletAddr)
+        if (!purchase?.paid) {
+          setState('idle')
+          isAccessingRef.current = false
+          addToast({ title: 'Purchase required', description: 'Buy this vault first to unlock it', variant: 'warning' })
+          router.push(`/vault/${vaultId}`)
+          return
         }
       }
+    }
 
       const clients = await getWalletClients(wallets)
       if (!clients) {
@@ -261,9 +284,11 @@ const accessVaultCDR = useCallback(async () => {
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Unlock Vault</h1>
-          <p className="mt-2 text-muted text-base">
-            Access encrypted content using a valid license token or recover from your local backup.
-          </p>
+      <p className="mt-2 text-muted text-base">
+        {vaultType === 'private'
+          ? 'Access your private vault using owner-only EOA credentials.'
+          : 'Access encrypted content using a valid license token or recover from your local backup.'}
+      </p>
         </div>
 
         <Card>
@@ -279,14 +304,15 @@ const accessVaultCDR = useCallback(async () => {
       </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
-        <Input
-          label="Vault UUID"
-          placeholder="e.g. 1044"
-          value={vaultUuid}
-          onChange={(e) => setVaultUuid(e.target.value)}
-          disabled={state === 'accessing' || prefilled}
-          mono
-        />
+      <Input
+        label="Vault UUID"
+        placeholder="e.g. 1044"
+        value={vaultUuid}
+        onChange={(e) => setVaultUuid(e.target.value)}
+        disabled={state === 'accessing' || prefilled}
+        mono
+      />
+      {vaultType !== 'private' && (
         <Input
           label="License Token ID"
           placeholder="e.g. 72508"
@@ -295,6 +321,14 @@ const accessVaultCDR = useCallback(async () => {
           disabled={state === 'accessing' || prefilled}
           mono
         />
+      )}
+      {vaultType === 'private' && (
+        <div className="rounded-lg border border-accent/20 bg-accent-muted/30 px-4 py-3">
+          <p className="text-sm text-muted">
+            <span className="font-medium text-accent">Private vault</span> — only the owner can access. No license token required.
+          </p>
+        </div>
+      )}
       </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button

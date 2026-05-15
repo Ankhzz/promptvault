@@ -1,26 +1,19 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1777687138060,
-      "tag": "0000_free_starhawk",
+      "version": "7",
+      "when": 1778758247238,
+      "tag": "0000_married_the_renegades",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "6",
-      "when": 1777765043866,
-      "tag": "0001_loud_deadpool",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1777767928774,
-      "tag": "0002_furry_thaddeus_ross",
+      "version": "7",
+      "when": 1778807186903,
+      "tag": "0001_blue_la_nuit",
       "breakpoints": true
     }
   ]

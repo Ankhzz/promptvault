@@ -7,6 +7,7 @@ import {
   CDR_CONDITIONS,
   encodeLicenseReadCondition,
   encodeWriteConditionData,
+  encodeOwnerReadConditionEOA,
 } from '@/lib/cdr';
 import {
   encryptDataKeyForWallet,
@@ -17,9 +18,15 @@ import {
   EIP712_PRIMARY_TYPE,
   buildEIP712Message,
 } from '@/lib/crypto/datakey-encryption';
+import { uuidToLabel } from '@piplabs/cdr-sdk';
 
 interface UploadVaultParams {
   ipId: `0x${string}`;
+  writerAddress: `0x${string}`;
+  signTypedDataFn: SignTypedDataFn;
+}
+
+interface UploadOwnerOnlyVaultParams {
   writerAddress: `0x${string}`;
   signTypedDataFn: SignTypedDataFn;
 }
@@ -91,8 +98,73 @@ export function useCdrEncrypt() {
     [client, isReady],
   );
 
+  const uploadOwnerOnlyVault = useCallback(
+    async ({ writerAddress, signTypedDataFn }: UploadOwnerOnlyVaultParams): Promise<UploadVaultResult> => {
+      if (!client || !isReady) {
+        return { success: false, error: 'CDR client not ready' };
+      }
+
+      setIsEncrypting(true);
+
+      try {
+        const writeConditionData = encodeWriteConditionData(writerAddress);
+        const readConditionData = encodeOwnerReadConditionEOA();
+
+        const { uuid, txHash: allocateTxHash } = await client.uploader.allocate({
+          updatable: false,
+          writeConditionAddr: CDR_CONDITIONS.writeCondition,
+          writeConditionData,
+          readConditionAddr: writerAddress,
+          readConditionData,
+          skipConditionValidation: true,
+        });
+
+        const globalPubKey = await client.observer.getGlobalPubKey();
+
+        const dataKey = crypto.getRandomValues(new Uint8Array(32));
+        const dataKeyHex = toHex(dataKey) as `0x${string}`;
+
+        const ciphertext = await client.uploader.encryptDataKey({
+          dataKey,
+          globalPubKey,
+          label: uuidToLabel(uuid),
+        });
+
+    const writeResult = await client.uploader.write({
+      uuid,
+      accessAuxData: '0x',
+      encryptedData: toHex(ciphertext.raw),
+    });
+
+    const encryptedDataKey = await encryptDataKeyForWallet(
+      dataKey,
+      writerAddress,
+      signTypedDataFn,
+    );
+
+    return {
+      success: true,
+      uuid,
+      dataKeyHex,
+      encryptedDataKey,
+      txHashes: {
+        allocate: allocateTxHash as `0x${string}`,
+        write: writeResult.txHash,
+          },
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        return { success: false, error: msg };
+      } finally {
+        setIsEncrypting(false);
+      }
+    },
+    [client, isReady],
+  );
+
   return {
     uploadVault,
+    uploadOwnerOnlyVault,
     isEncrypting,
   };
 }

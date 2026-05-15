@@ -47,7 +47,7 @@ export default function DashboardPage() {
     uuid: number
     name: string
     status: string
-    ipId: string
+    ipId: string | null
     createdAt: Date
   }>>([])
   const [loading, setLoading] = useState(true)
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                               {vault.status}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId.slice(0, 10)}...{vault.ipId.slice(-6)}</p>
+                          <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId ? `${vault.ipId.slice(0, 10)}...${vault.ipId.slice(-6)}` : 'Private vault'}</p>
                         </div>
                         <Button variant="secondary" size="sm">View</Button>
                       </div>

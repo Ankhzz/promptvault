@@ -1,1 +1,0 @@
-ALTER TABLE `vaults` ADD `encrypted_file_meta` text;

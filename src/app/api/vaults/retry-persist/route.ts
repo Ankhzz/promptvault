@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, status: 'already_exists', vault })
     }
 
-    const requiredFields = ['uuid', 'ownerAddress', 'name', 'ipId', 'licenseTermsId'] as const
+    const requiredFields = ['uuid', 'ownerAddress', 'name'] as const
     for (const field of requiredFields) {
       if (body[field] == null) {
         return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 })
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     ownerAddress: body.ownerAddress,
     name: body.name,
     description: body.description,
+    vaultType: body.vaultType,
     ipId: body.ipId,
     licenseTermsId: body.licenseTermsId,
     licenseTokenId: body.licenseTokenId,

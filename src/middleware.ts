@@ -59,6 +59,7 @@ function getCsp(host: string): string {
     'https://gateway.lighthouse.storage',
     'https://api.lighthouse.storage',
     'https://upload.lighthouse.storage',
+    'https://*.supabase.co',
   ]
 
   if (isDev) {

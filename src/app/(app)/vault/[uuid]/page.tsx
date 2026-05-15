@@ -21,6 +21,7 @@ import {
   DownloadIcon,
   EyeIcon,
   PricetagIcon,
+  LockIcon,
 } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault } from '@/db/queries'
@@ -59,7 +60,7 @@ export default function VaultDetailPage() {
   const parsedUuid = parseInt(String(params.uuid), 10)
   const uuid = Number.isInteger(parsedUuid) && parsedUuid > 0 ? parsedUuid : NaN
 
-  const [vault, setVault] = useState<VaultData>(undefined)
+  const [vault, setVault] = useState<VaultData | undefined>(undefined)
   const [licenses, setLicenses] = useState<LicenseTokenData>([])
   const [activityEntries, setActivityEntries] = useState<ActivityData>([])
   const [loading, setLoading] = useState(true)
@@ -83,8 +84,9 @@ export default function VaultDetailPage() {
   const isOwner = vault && address
     ? vault.ownerAddress.toLowerCase() === address.toLowerCase()
     : false
+  const isPrivate = vault?.vaultType === 'private'
 
-  const needsPurchase = !!vault?.isForSale && !isOwner && !hasPurchased
+  const needsPurchase = !isPrivate && !!vault?.isForSale && !isOwner && !hasPurchased
 
   const purchaseBusy = purchaseStep === 'minting' || purchaseStep === 'finalizing' || purchaseStep === 'redirecting'
 
@@ -213,7 +215,7 @@ export default function VaultDetailPage() {
 
       const mintResult = await mintLicenseToken({
         licensorIpId: vault.ipId as `0x${string}`,
-        licenseTermsId: vault.licenseTermsId,
+          licenseTermsId: vault.licenseTermsId!,
         amount: 1,
         receiver: address as `0x${string}`,
       })
@@ -353,7 +355,13 @@ export default function VaultDetailPage() {
                 {vault.name}
               </h1>
               <Badge variant={status.badge} dot>{status.label}</Badge>
-          {vault.isForSale && !isOwner && (
+              {isPrivate && (
+                <Badge variant="default" dot>
+                  <LockIcon className="h-3 w-3 mr-0.5" />
+                  Private
+                </Badge>
+              )}
+              {!isPrivate && vault.isForSale && !isOwner && (
             <Badge variant="accent" dot>
               <PricetagIcon className="h-3 w-3 mr-0.5" />
               For Sale · {formatPrice(vault.price)}
@@ -364,19 +372,25 @@ export default function VaultDetailPage() {
               <p className="mt-2 text-muted text-base">{vault.description}</p>
             )}
           </div>
-  {isOwner && !hasSessionKey && (
-  <Button
-    variant="primary"
-    size="sm"
-    onClick={() => {
-      const params = new URLSearchParams({ vaultId: String(vault.uuid) })
-      if (vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
-      router.push(`/unlock?${params}`)
-    }}
-  >
-    Unlock
-  </Button>
-)}
+        {isOwner && !hasSessionKey && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+              if (!isPrivate && vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+              router.push(`/unlock?${params}`)
+            }}
+          >
+            Unlock
+          </Button>
+        )}
+        {!isOwner && isPrivate && (
+          <Badge variant="destructive" dot>
+            <LockIcon className="h-3 w-3 mr-0.5" />
+            Owner Only
+          </Badge>
+        )}
         </div>
 
         <Card>
@@ -385,23 +399,35 @@ export default function VaultDetailPage() {
               <ShieldIcon className="h-5 w-5 text-accent" />
               <CardTitle>On-Chain Identity</CardTitle>
             </div>
-            <CardDescription>IP asset and licensing information on Story Protocol</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <DetailRow label="Vault UUID" value={String(vault.uuid)} mono copyId="uuid" onCopy={copyToClipboard} copied={copied} />
-            <DetailRow
-              label="IP Asset"
-              value={vault.ipId}
-              mono
-              copyId="ipId"
-              onCopy={copyToClipboard}
-              copied={copied}
-              explorerUrl={`${STORY_CHAIN.explorer}/address/${vault.ipId}`}
-            />
-            <DetailRow label="License Terms" value={String(vault.licenseTermsId)} mono />
-            {vault.licenseTokenId && (
-              <DetailRow label="License Token" value={vault.licenseTokenId} mono copyId="licenseTokenId" onCopy={copyToClipboard} copied={copied} />
-            )}
+      <CardDescription>
+        {isPrivate
+          ? 'Private vault — owner-only EOA access, no IP registration'
+          : 'IP asset and licensing information on Story Protocol'}
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-3">
+      <DetailRow label="Vault UUID" value={String(vault.uuid)} mono copyId="uuid" onCopy={copyToClipboard} copied={copied} />
+      <DetailRow
+        label="Vault Type"
+        value={isPrivate ? 'Private (Owner-Only)' : 'Licensed'}
+      />
+      {!isPrivate && (
+        <>
+          <DetailRow
+            label="IP Asset"
+            value={vault.ipId || ''}
+            mono
+            copyId="ipId"
+            onCopy={copyToClipboard}
+            copied={copied}
+            explorerUrl={`${STORY_CHAIN.explorer}/address/${vault.ipId}`}
+          />
+          <DetailRow label="License Terms" value={String(vault.licenseTermsId)} mono />
+          {vault.licenseTokenId && (
+            <DetailRow label="License Token" value={vault.licenseTokenId} mono copyId="licenseTokenId" onCopy={copyToClipboard} copied={copied} />
+          )}
+        </>
+      )}
             <DetailRow
               label="Owner"
               value={vault.ownerAddress}
@@ -591,17 +617,19 @@ export default function VaultDetailPage() {
         Decrypt & View
       </Button>
         ) : (
-        <Button variant="secondary" size="md"
-          onClick={() => {
-            const params = new URLSearchParams({ vaultId: String(uuid) })
-            const tokenId = buyerLicenseTokenId || vault.licenseTokenId
-            if (tokenId) params.set('licenseTokenId', tokenId)
-            router.push(`/unlock?${params}`)
-          }}
-          className="flex-1"
-        >
-          Unlock Vault First
-      </Button>
+                  <Button variant="secondary" size="md"
+                    onClick={() => {
+                      const params = new URLSearchParams({ vaultId: String(uuid) })
+                      if (!isPrivate) {
+                        const tokenId = buyerLicenseTokenId || vault.licenseTokenId
+                        if (tokenId) params.set('licenseTokenId', tokenId)
+                      }
+                      router.push(`/unlock?${params}`)
+                    }}
+                    className="flex-1"
+                  >
+                    Unlock Vault First
+                  </Button>
     )}
   </div>
 )}
@@ -716,7 +744,7 @@ export default function VaultDetailPage() {
                 <div className="pt-2 border-t border-border">
                   <p className="text-xs text-subtle font-medium uppercase tracking-wider mb-3">Access Log</p>
                 </div>
-                {activityEntries.map((entry) => (
+                {activityEntries.map((entry: ActivityData[number]) => (
                   <div key={entry.id} className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                       <Badge variant={entry.type === 'vault_created' ? 'accent' : entry.type === 'license_minted' ? 'info' : 'default'} dot>
@@ -745,7 +773,7 @@ export default function VaultDetailPage() {
           </CardContent>
         </Card>
 
-        {licenses.length > 0 && (
+        {!isPrivate && licenses.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -755,7 +783,7 @@ export default function VaultDetailPage() {
               <CardDescription>Tokens granting access to this vault's content</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {licenses.map((license) => (
+              {licenses.map((license: LicenseTokenData[number]) => (
                 <div key={license.tokenId} className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground font-mono truncate">

@@ -1,20 +1,19 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from './schema'
 
-let _db: LibSQLDatabase<typeof schema> | null = null
+let _db: PostgresJsDatabase<typeof schema> | null = null
 
-async function createDb(): Promise<LibSQLDatabase<typeof schema>> {
-  const url = process.env.TURSO_DATABASE_URL || 'file:promptvault.db'
-  const authToken = process.env.TURSO_AUTH_TOKEN
+async function createDb(): Promise<PostgresJsDatabase<typeof schema>> {
+  const connectionString = process.env.DATABASE_URL!
 
-  const { createClient } = await import('@libsql/client')
-  const { drizzle } = await import('drizzle-orm/libsql')
+  const { default: postgres } = await import('postgres')
+  const { drizzle } = await import('drizzle-orm/postgres-js')
 
-  const client = createClient({ url, authToken })
+  const client = postgres(connectionString, { ssl: 'require' })
   return drizzle(client, { schema })
 }
 
-export async function getDb(): Promise<LibSQLDatabase<typeof schema>> {
+export async function getDb(): Promise<PostgresJsDatabase<typeof schema>> {
   if (!_db) {
     _db = await createDb()
   }

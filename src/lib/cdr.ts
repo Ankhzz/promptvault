@@ -28,3 +28,7 @@ export function encodeWriteConditionData(
 ): `0x${string}` {
   return encodeAbiParameters([{ type: 'address' }], [writerAddress]);
 }
+
+export function encodeOwnerReadConditionEOA(): `0x${string}` {
+  return '0x';
+}
