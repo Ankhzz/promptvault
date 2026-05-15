@@ -15,8 +15,9 @@ import { STORY_CHAIN, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
 import { CDR_CONDITIONS, encodeAccessAuxData } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
-import { recordVaultAccess, getVaultEncryptedDataKey, getVaultByUuid, getPurchase } from '@/db/queries'
+import { recordVaultAccess, getVaultEncryptedDataKey, getVaultByUuid, getPurchase, getPurchaseEncryptedDataKey, setPurchaseEncryptedDataKey } from '@/db/queries'
 import {
+  encryptDataKeyForWallet,
   decryptDataKeyForWallet,
   type EncryptedDataKey,
   type SignTypedDataFn,
@@ -171,15 +172,28 @@ function UnlockVaultContent() {
         timeoutMs: 120_000,
       })
 
-      const keyHex = toHex(result.dataKey)
-      storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', clients.address, result.txHash ?? undefined)
-      addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
+        const keyHex = toHex(result.dataKey)
+        storeKeyAndFinish(keyHex, vaultId, 'cdr_threshold', clients.address, result.txHash ?? undefined)
+        addToast({ title: 'Vault unlocked!', description: 'Data key recovered via CDR threshold', variant: 'accent' })
 
-      recordVaultAccess({
-        vaultUuid: vaultId,
-        walletAddress: clients.address,
-        txHash: result.txHash ?? undefined,
-      }).catch(() => {})
+        recordVaultAccess({
+          vaultUuid: vaultId,
+          walletAddress: clients.address,
+          txHash: result.txHash ?? undefined,
+        }).catch(() => {})
+
+        if (!isPrivate && vaultData?.ownerAddress && clients.address.toLowerCase() !== vaultData.ownerAddress.toLowerCase()) {
+          encryptDataKeyForWallet(
+            result.dataKey,
+            clients.address,
+            async ({ domain, types, primaryType, message }) => {
+              return clients.walletClient.signTypedData({ domain, types, primaryType, message })
+            },
+            async (message) => clients.walletClient.signMessage({ message }),
+          ).then(async (encrypted) => {
+            await setPurchaseEncryptedDataKey(vaultId, clients.address, JSON.stringify(encrypted))
+          }).catch(() => {})
+        }
     } catch (err) {
       const parsed = parseTxError(err)
       setState('idle')
@@ -223,45 +237,56 @@ function UnlockVaultContent() {
       setState('accessing')
       addToast({ title: 'Recovering data key locally...', description: 'Using your encrypted data key backup', variant: 'default' })
 
-      const vaultData = await getVaultEncryptedDataKey(vaultId)
-      if (!vaultData?.encryptedDataKey) {
-        setState('idle')
-        isAccessingRef.current = false
-        addToast({ title: 'No local key backup', description: 'This vault has no encrypted data key stored. Use CDR threshold unlock instead.', variant: 'warning' })
-        return
-      }
+        const signTypedDataFn: SignTypedDataFn = async ({ domain, types, primaryType, message }) => {
+          return clients.walletClient.signTypedData({
+            domain,
+            types,
+            primaryType,
+            message,
+          })
+        }
 
-      if (vaultData.ownerAddress.toLowerCase() !== clients.address.toLowerCase()) {
-        setState('idle')
-        isAccessingRef.current = false
-        addToast({ title: 'Not vault owner', description: 'Local recovery is only available for the vault owner', variant: 'destructive' })
-        return
-      }
+        const signMessageFn: SignMessageFn = async (message) => {
+          return clients.walletClient.signMessage({ message })
+        }
 
-      const encrypted: EncryptedDataKey = JSON.parse(vaultData.encryptedDataKey)
+        const vaultData = await getVaultByUuid(vaultId)
+        const isOwner = vaultData?.ownerAddress && clients.address.toLowerCase() === vaultData.ownerAddress.toLowerCase()
 
-      const signTypedDataFn: SignTypedDataFn = async ({ domain, types, primaryType, message }) => {
-        return clients.walletClient.signTypedData({
-          domain,
-          types,
-          primaryType,
-          message,
-        })
-      }
+        if (isOwner) {
+          const ownerBackup = await getVaultEncryptedDataKey(vaultId)
+          if (!ownerBackup?.encryptedDataKey) {
+            setState('idle')
+            isAccessingRef.current = false
+            addToast({ title: 'No local key backup', description: 'This vault has no encrypted data key stored. Use CDR threshold unlock instead.', variant: 'warning' })
+            return
+          }
 
-      const signMessageFn: SignMessageFn = async (message) => {
-        return clients.walletClient.signMessage({ message })
-      }
+          const encrypted: EncryptedDataKey = JSON.parse(ownerBackup.encryptedDataKey)
+          const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
+          const keyHex = toHex(dataKey)
+          storeKeyAndFinish(keyHex, vaultId, 'local_recovery', clients.address)
+          addToast({ title: 'Vault unlocked!', description: 'Data key recovered from owner backup', variant: 'accent' })
+        } else {
+          const buyerBackup = await getPurchaseEncryptedDataKey(vaultId, clients.address)
+          if (!buyerBackup?.encryptedDataKey) {
+            setState('idle')
+            isAccessingRef.current = false
+            addToast({ title: 'No buyer key backup', description: 'No encrypted data key backup found for your wallet. Use CDR threshold unlock instead.', variant: 'warning' })
+            return
+          }
 
-      const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
-      const keyHex = toHex(dataKey)
-    storeKeyAndFinish(keyHex, vaultId, 'local_recovery', clients.address)
-    addToast({ title: 'Vault unlocked!', description: 'Data key recovered from local backup', variant: 'accent' })
+          const encrypted: EncryptedDataKey = JSON.parse(buyerBackup.encryptedDataKey)
+          const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
+          const keyHex = toHex(dataKey)
+          storeKeyAndFinish(keyHex, vaultId, 'local_recovery', clients.address)
+          addToast({ title: 'Vault unlocked!', description: 'Data key recovered from buyer backup (no gas needed!)', variant: 'accent' })
+        }
 
-    recordVaultAccess({
-      vaultUuid: vaultId,
-        walletAddress: clients.address,
-      }).catch(() => {})
+        recordVaultAccess({
+          vaultUuid: vaultId,
+          walletAddress: clients.address,
+        }).catch(() => {})
     } catch (err) {
       const parsed = parseTxError(err)
       setState('idle')
