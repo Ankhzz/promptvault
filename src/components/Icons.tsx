@@ -227,3 +227,12 @@ export const ClockIcon = forwardRef<SVGSVGElement, IconProps>(
   ),
 )
 ClockIcon.displayName = 'ClockIcon'
+
+export const DropletIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z" />
+    </svg>
+  ),
+)
+DropletIcon.displayName = 'DropletIcon'
