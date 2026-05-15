@@ -21,7 +21,7 @@ export async function createVaultRecord(data: {
   ownerAddress: string
   name: string
   description?: string
-  vaultType?: 'licensed' | 'private'
+  vaultType?: 'licensed' | 'private' | 'timelocked'
   ipId?: string
   licenseTermsId?: number
   licenseTokenId?: string
@@ -33,6 +33,7 @@ export async function createVaultRecord(data: {
   writeTxHash?: string
   registerTxHash?: string
   mintTxHash?: string
+  unlockTime?: Date
 }) {
   const db = await getDb()
   await getOrCreateUser(data.ownerAddress)

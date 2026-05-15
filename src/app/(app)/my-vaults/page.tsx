@@ -20,7 +20,7 @@ type OwnedVaultRow = {
   uuid: number
   name: string
   status: string
-  vaultType: 'licensed' | 'private'
+  vaultType: 'licensed' | 'private' | 'timelocked'
   ipId: string | null
   licenseTokenId: string | null
   price: number | null
@@ -35,7 +35,7 @@ type PurchasedVaultRow = {
   name: string
   description: string | null
   status: string
-  vaultType: 'licensed' | 'private'
+  vaultType: 'licensed' | 'private' | 'timelocked'
   ipId: string | null
   licenseTokenId: string | null
   price: number | null

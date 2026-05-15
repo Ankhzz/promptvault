@@ -22,6 +22,7 @@ import {
   EyeIcon,
   PricetagIcon,
   LockIcon,
+  ClockIcon,
 } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault } from '@/db/queries'
@@ -85,8 +86,10 @@ export default function VaultDetailPage() {
     ? vault.ownerAddress.toLowerCase() === address.toLowerCase()
     : false
   const isPrivate = vault?.vaultType === 'private'
+  const isTimeLocked = vault?.vaultType === 'timelocked'
+  const isLocked = isTimeLocked && vault?.unlockTime && new Date(vault.unlockTime) > new Date()
 
-  const needsPurchase = !isPrivate && !!vault?.isForSale && !isOwner && !hasPurchased
+  const needsPurchase = !isPrivate && !isTimeLocked && !!vault?.isForSale && !isOwner && !hasPurchased
 
   const purchaseBusy = purchaseStep === 'minting' || purchaseStep === 'finalizing' || purchaseStep === 'redirecting'
 
@@ -355,13 +358,19 @@ export default function VaultDetailPage() {
                 {vault.name}
               </h1>
               <Badge variant={status.badge} dot>{status.label}</Badge>
-              {isPrivate && (
-                <Badge variant="default" dot>
-                  <LockIcon className="h-3 w-3 mr-0.5" />
-                  Private
-                </Badge>
-              )}
-              {!isPrivate && vault.isForSale && !isOwner && (
+      {isPrivate && (
+          <Badge variant="default" dot>
+            <LockIcon className="h-3 w-3 mr-0.5" />
+            Private
+          </Badge>
+        )}
+        {isTimeLocked && (
+          <Badge variant={isLocked ? 'destructive' : 'accent'} dot>
+            <ClockIcon className="h-3 w-3 mr-0.5" />
+            {isLocked ? 'Locked' : 'Unlocked'}
+          </Badge>
+        )}
+        {!isPrivate && !isTimeLocked && vault.isForSale && !isOwner && (
             <Badge variant="accent" dot>
               <PricetagIcon className="h-3 w-3 mr-0.5" />
               For Sale · {formatPrice(vault.price)}
@@ -378,7 +387,7 @@ export default function VaultDetailPage() {
             size="sm"
             onClick={() => {
               const params = new URLSearchParams({ vaultId: String(vault.uuid) })
-              if (!isPrivate && vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+              if (!isPrivate && !isTimeLocked && vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
               router.push(`/unlock?${params}`)
             }}
           >
@@ -389,6 +398,24 @@ export default function VaultDetailPage() {
           <Badge variant="destructive" dot>
             <LockIcon className="h-3 w-3 mr-0.5" />
             Owner Only
+          </Badge>
+        )}
+        {!isOwner && isTimeLocked && !isLocked && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+              router.push(`/unlock?${params}`)
+            }}
+          >
+            Unlock
+          </Button>
+        )}
+        {!isOwner && isTimeLocked && isLocked && (
+          <Badge variant="destructive" dot>
+            <ClockIcon className="h-3 w-3 mr-0.5" />
+            Locked
           </Badge>
         )}
         </div>
@@ -402,6 +429,8 @@ export default function VaultDetailPage() {
       <CardDescription>
         {isPrivate
           ? 'Private vault — owner-only EOA access, no IP registration'
+          : isTimeLocked
+          ? 'Time-locked vault — on-chain condition enforces unlock time'
           : 'IP asset and licensing information on Story Protocol'}
       </CardDescription>
     </CardHeader>
@@ -409,9 +438,9 @@ export default function VaultDetailPage() {
       <DetailRow label="Vault UUID" value={String(vault.uuid)} mono copyId="uuid" onCopy={copyToClipboard} copied={copied} />
       <DetailRow
         label="Vault Type"
-        value={isPrivate ? 'Private (Owner-Only)' : 'Licensed'}
+        value={isPrivate ? 'Private (Owner-Only)' : isTimeLocked ? 'Time-Locked' : 'Licensed'}
       />
-      {!isPrivate && (
+        {!isPrivate && !isTimeLocked && (
         <>
           <DetailRow
             label="IP Asset"
@@ -427,8 +456,14 @@ export default function VaultDetailPage() {
             <DetailRow label="License Token" value={vault.licenseTokenId} mono copyId="licenseTokenId" onCopy={copyToClipboard} copied={copied} />
           )}
         </>
+)}
+      {isTimeLocked && vault.unlockTime && (
+        <DetailRow
+          label="Unlock Time"
+          value={isLocked ? `${new Date(vault.unlockTime).toLocaleString()} (locked)` : `${new Date(vault.unlockTime).toLocaleString()} (unlocked)`}
+        />
       )}
-            <DetailRow
+      <DetailRow
               label="Owner"
               value={vault.ownerAddress}
               mono
@@ -620,7 +655,7 @@ export default function VaultDetailPage() {
                   <Button variant="secondary" size="md"
                     onClick={() => {
                       const params = new URLSearchParams({ vaultId: String(uuid) })
-                      if (!isPrivate) {
+                      if (!isPrivate && !isTimeLocked) {
                         const tokenId = buyerLicenseTokenId || vault.licenseTokenId
                         if (tokenId) params.set('licenseTokenId', tokenId)
                       }
@@ -773,7 +808,7 @@ export default function VaultDetailPage() {
           </CardContent>
         </Card>
 
-        {!isPrivate && licenses.length > 0 && (
+        {!isPrivate && !isTimeLocked && licenses.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">

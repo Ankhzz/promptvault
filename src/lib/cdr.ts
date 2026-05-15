@@ -32,3 +32,10 @@ export function encodeWriteConditionData(
 export function encodeOwnerReadConditionEOA(): `0x${string}` {
   return '0x';
 }
+
+export function encodeTimeLockReadCondition(unlockTime: bigint): `0x${string}` {
+  return encodeAbiParameters(
+    [{ type: 'uint256' }],
+    [unlockTime],
+  );
+}

@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
-import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon } from '@/components/Icons'
+import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon, ClockIcon } from '@/components/Icons'
 import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
-import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData } from '@/lib/cdr'
+import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData, encodeTimeLockReadCondition } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
 import { custom as viemCustom, Account } from 'viem'
@@ -28,7 +28,7 @@ import {
 import { encryptFile, uploadToLighthouse, type EncryptedFile } from '@/lib/encrypt-file'
 
 type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_file' | 'encrypt_key' | 'persist' | 'done'
-type VaultType = 'licensed' | 'private'
+type VaultType = 'licensed' | 'private' | 'timelocked'
 
 interface StepResult {
   ipId?: Address
@@ -62,6 +62,7 @@ export default function CreateVaultPage() {
   const [description, setDescription] = useState('')
   const [vaultType, setVaultType] = useState<VaultType>('licensed')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [unlockTime, setUnlockTime] = useState('')
 
   const getClients = useCallback(async () => {
     if (wallets.length === 0) return null
@@ -87,6 +88,22 @@ export default function CreateVaultPage() {
       return
     }
 
+    if (vaultType === 'timelocked') {
+      if (!unlockTime) {
+        addToast({ title: 'Unlock time required', description: 'Set a future unlock time for the time-locked vault', variant: 'warning' })
+        return
+      }
+      const unlockDate = new Date(unlockTime)
+      if (unlockDate <= new Date()) {
+        addToast({ title: 'Invalid unlock time', description: 'Unlock time must be in the future', variant: 'warning' })
+        return
+      }
+      if (!CONTRACTS.TIME_LOCK_READ_CONDITION) {
+        addToast({ title: 'Time-Lock contract not deployed', description: 'Deploy TimeLockReadCondition on Aeneid and set address in constants.ts', variant: 'destructive' })
+        return
+      }
+    }
+
     const clients = await getClients()
     if (!clients) {
       addToast({ title: 'Wallet not connected', variant: 'destructive' })
@@ -108,6 +125,8 @@ export default function CreateVaultPage() {
     try {
       if (vaultType === 'licensed') {
         await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+      } else if (vaultType === 'timelocked') {
+        await runTimeLockedFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
       } else {
         await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
       }
@@ -364,6 +383,107 @@ export default function CreateVaultPage() {
     })
   }, [name, description, selectedFile, addToast])
 
+  const runTimeLockedFlow = useCallback(async (
+    clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
+    txHashes: string[],
+    _ipfsCid: string | undefined,
+    _encryptedFileMeta: string | undefined,
+  ) => {
+    setStep('upload')
+    addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
+
+    await initWasm()
+
+    const cdrClient = new CDRClient({
+      network: CDR_CONFIG.network,
+      publicClient: clients.publicClient,
+      walletClient: clients.walletClient,
+      cometRpcUrl: getCometRpcUrl(),
+      validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
+    })
+
+    const unlockDate = new Date(unlockTime)
+    const unlockTimestamp = BigInt(Math.floor(unlockDate.getTime() / 1000))
+
+    const writeConditionData = encodeWriteConditionData(clients.address)
+    const readConditionData = encodeTimeLockReadCondition(unlockTimestamp)
+
+    const globalPubKey = await cdrClient.observer.getGlobalPubKey()
+    const dataKey = crypto.getRandomValues(new Uint8Array(32))
+
+    const uploadResult = await cdrClient.uploader.uploadCDR({
+      dataKey,
+      globalPubKey,
+      updatable: false,
+      writeConditionAddr: CDR_CONDITIONS.writeCondition,
+      readConditionAddr: CONTRACTS.TIME_LOCK_READ_CONDITION,
+      writeConditionData,
+      readConditionData,
+      accessAuxData: '0x',
+    })
+
+    txHashes.push(uploadResult.txHashes.allocate)
+    txHashes.push(uploadResult.txHashes.write)
+
+    let ipfsCid: string | undefined
+    let encryptedFileMeta: string | undefined
+
+    if (selectedFile) {
+      setStep('encrypt_file')
+      addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
+
+      const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
+      encryptedFileMeta = JSON.stringify(encrypted)
+
+      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
+      setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
+    }
+
+    setStep('encrypt_key')
+    addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
+
+    const signTypedDataFn = async (params: {
+      domain: typeof EIP712_DOMAIN
+      types: typeof EIP712_TYPES
+      primaryType: 'EncryptDataKey'
+      message: { wallet: Address; purpose: string; version: bigint }
+    }) => {
+      return clients.walletClient.signTypedData({
+        domain: params.domain,
+        types: params.types,
+        primaryType: params.primaryType,
+        message: params.message,
+      })
+    }
+
+    const encryptedDataKey = await encryptDataKeyForWallet(
+      dataKey,
+      clients.address,
+      signTypedDataFn,
+    )
+
+    setResult(prev => ({
+      ...prev,
+      vaultUuid: uploadResult.uuid,
+      txHashes,
+      encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
+      dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+    }))
+
+    await persistVault({
+      uuid: uploadResult.uuid,
+      ownerAddress: clients.address,
+      ipfsCid,
+      encryptedFileMeta,
+      encryptedDataKey,
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+      unlockTime: unlockDate,
+    })
+  }, [name, description, selectedFile, unlockTime, addToast])
+
   const persistVault = useCallback(async (params: {
     uuid: number
     ownerAddress: Address
@@ -377,6 +497,7 @@ export default function CreateVaultPage() {
     writeTxHash: string
     registerTxHash?: string
     mintTxHash?: string
+    unlockTime?: Date
   }) => {
     setStep('persist')
     addToast({ title: 'Saving vault record...', variant: 'default' })
@@ -399,6 +520,7 @@ export default function CreateVaultPage() {
         writeTxHash: params.writeTxHash,
         registerTxHash: params.registerTxHash,
         mintTxHash: params.mintTxHash,
+        unlockTime: params.unlockTime,
       })
       setResult(prev => ({ ...prev, dbPersisted: true }))
     } catch (dbErr) {
@@ -420,7 +542,7 @@ export default function CreateVaultPage() {
       { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
       { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
     ] : []),
-    { key: 'upload' as Step, label: vaultType === 'private' ? 'Encrypt & Upload Private CDR' : 'Encrypt & Upload CDR', done: !!result.vaultUuid },
+    { key: 'upload' as Step, label: vaultType === 'private' ? 'Encrypt & Upload Private CDR' : vaultType === 'timelocked' ? 'Encrypt & Upload Time-Locked CDR' : 'Encrypt & Upload CDR', done: !!result.vaultUuid },
     ...(selectedFile ? [
       { key: 'encrypt_file' as Step, label: 'Encrypt File & Upload IPFS', done: !!result.ipfsCid },
     ] : []),
@@ -441,11 +563,13 @@ export default function CreateVaultPage() {
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Create Vault</h1>
-        <p className="mt-2 text-muted text-base">
-          {vaultType === 'licensed'
-            ? 'Register an IP asset, mint a license token, and encrypt your content in a single flow.'
-            : 'Create a private vault with owner-only EOA access — no IP registration needed.'}
-        </p>
+          <p className="mt-2 text-muted text-base">
+            {vaultType === 'licensed'
+              ? 'Register an IP asset, mint a license token, and encrypt your content in a single flow.'
+              : vaultType === 'timelocked'
+              ? 'Create a time-locked vault that can only be accessed after a specified unlock time — enforced on-chain.'
+              : 'Create a private vault with owner-only EOA access — no IP registration needed.'}
+          </p>
         </div>
 
         <Card>
@@ -477,48 +601,82 @@ export default function CreateVaultPage() {
               <ShieldIcon className="h-5 w-5 text-accent" />
               <CardTitle>Vault Type</CardTitle>
             </div>
-            <CardDescription>
-              {vaultType === 'licensed'
-                ? 'Licensed vaults: register an IP asset + mint license tokens for access gating'
-                : 'Private vaults: owner-only access via EOA, no IP registration needed'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={step !== 'idle'}
-                onClick={() => setVaultType('licensed')}
-                className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
-                  vaultType === 'licensed'
-                    ? 'border-accent bg-accent-muted'
-                    : 'border-border bg-surface hover:border-border/80'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldIcon className="h-4 w-4 text-accent" />
-                  <span className="text-sm font-semibold text-foreground">Licensed</span>
-                </div>
-                <span className="text-xs text-muted">IP registration + license tokens gate access</span>
-              </button>
-              <button
-                type="button"
-                disabled={step !== 'idle'}
-                onClick={() => setVaultType('private')}
-                className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
-                  vaultType === 'private'
-                    ? 'border-accent bg-accent-muted'
-                    : 'border-border bg-surface hover:border-border/80'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <LockIcon className="h-4 w-4 text-accent" />
-                  <span className="text-sm font-semibold text-foreground">Private</span>
-                </div>
-                <span className="text-xs text-muted">Owner-only EOA access, no on-chain licensing</span>
-              </button>
+        <CardDescription>
+          {vaultType === 'licensed'
+            ? 'Licensed vaults: register an IP asset + mint license tokens for access gating'
+            : vaultType === 'timelocked'
+            ? 'Time-locked vaults: on-chain condition enforces unlock time, anyone can read after'
+            : 'Private vaults: owner-only access via EOA, no IP registration needed'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            type="button"
+            disabled={step !== 'idle'}
+            onClick={() => setVaultType('licensed')}
+            className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
+              vaultType === 'licensed'
+                ? 'border-accent bg-accent-muted'
+                : 'border-border bg-surface hover:border-border/80'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <ShieldIcon className="h-4 w-4 text-accent" />
+              <span className="text-sm font-semibold text-foreground">Licensed</span>
             </div>
-          </CardContent>
+            <span className="text-xs text-muted">IP registration + license tokens gate access</span>
+          </button>
+          <button
+            type="button"
+            disabled={step !== 'idle'}
+            onClick={() => setVaultType('timelocked')}
+            className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
+              vaultType === 'timelocked'
+                ? 'border-accent bg-accent-muted'
+                : 'border-border bg-surface hover:border-border/80'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <ClockIcon className="h-4 w-4 text-accent" />
+              <span className="text-sm font-semibold text-foreground">Time-Locked</span>
+            </div>
+            <span className="text-xs text-muted">On-chain unlock time condition, public after</span>
+          </button>
+          <button
+            type="button"
+            disabled={step !== 'idle'}
+            onClick={() => setVaultType('private')}
+            className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all disabled:opacity-50 ${
+              vaultType === 'private'
+                ? 'border-accent bg-accent-muted'
+                : 'border-border bg-surface hover:border-border/80'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <LockIcon className="h-4 w-4 text-accent" />
+              <span className="text-sm font-semibold text-foreground">Private</span>
+            </div>
+            <span className="text-xs text-muted">Owner-only EOA access, no on-chain licensing</span>
+          </button>
+        </div>
+        {vaultType === 'timelocked' && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-foreground mb-1.5">Unlock Time</label>
+            <input
+              type="datetime-local"
+              value={unlockTime}
+              onChange={(e) => setUnlockTime(e.target.value)}
+              disabled={step !== 'idle'}
+              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Vault content can only be decrypted after this time (enforced on-chain)
+            </p>
+          </div>
+        )}
+      </CardContent>
         </Card>
 
         <Card>
@@ -583,9 +741,9 @@ export default function CreateVaultPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ShieldIcon className="h-5 w-5 text-accent" />
-        <CardTitle>{vaultType === 'licensed' ? 'On-Chain Protection Flow' : 'Private Encryption Flow'}</CardTitle>
-      </div>
-      <CardDescription>{vaultType === 'licensed' ? 'Transactions + data key encryption executed in sequence' : 'Allocate → encrypt → write + wallet key encryption'}</CardDescription>
+              <CardTitle>{vaultType === 'licensed' ? 'On-Chain Protection Flow' : vaultType === 'timelocked' ? 'Time-Locked Encryption Flow' : 'Private Encryption Flow'}</CardTitle>
+            </div>
+            <CardDescription>{vaultType === 'licensed' ? 'Transactions + data key encryption executed in sequence' : vaultType === 'timelocked' ? 'Upload CDR with time-lock condition + wallet key encryption' : 'Allocate → encrypt → write + wallet key encryption'}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -658,9 +816,15 @@ export default function CreateVaultPage() {
                   <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
                 </>
               )}
-              {vaultType === 'private' && (
-                <DataRow label="Vault Type" value="Private (Owner-Only EOA)" mono={false} />
-              )}
+        {vaultType === 'private' && (
+          <DataRow label="Vault Type" value="Private (Owner-Only EOA)" mono={false} />
+        )}
+        {vaultType === 'timelocked' && (
+          <>
+            <DataRow label="Vault Type" value="Time-Locked" mono={false} />
+            <DataRow label="Unlock Time" value={unlockTime ? new Date(unlockTime).toLocaleString() : ''} mono={false} />
+          </>
+        )}
               {result.ipfsCid && (
                 <DataRow label="IPFS CID" value={result.ipfsCid} mono />
               )}

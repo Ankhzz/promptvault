@@ -61,7 +61,7 @@ function UnlockVaultContent() {
   const [recoveredKey, setRecoveredKey] = useState<string | null>(null)
   const [readTxHash, setReadTxHash] = useState<string | null>(null)
   const [unlockMethod, setUnlockMethod] = useState<UnlockMethod | null>(null)
-  const [vaultType, setVaultType] = useState<'licensed' | 'private' | null>(null)
+  const [vaultType, setVaultType] = useState<'licensed' | 'private' | 'timelocked' | null>(null)
   const isAccessingRef = useRef(false)
 
   useEffect(() => {
@@ -106,8 +106,18 @@ function UnlockVaultContent() {
     try {
       const vaultData = await getVaultByUuid(vaultId)
       const isPrivate = vaultData?.vaultType === 'private'
+      const isTimeLocked = vaultData?.vaultType === 'timelocked'
 
-      if (!isPrivate) {
+      if (isTimeLocked) {
+        if (vaultData?.unlockTime && new Date(vaultData.unlockTime) > new Date()) {
+          const remaining = new Date(vaultData.unlockTime).getTime() - Date.now()
+          const mins = Math.ceil(remaining / 60000)
+          setState('idle')
+          isAccessingRef.current = false
+          addToast({ title: 'Vault is still locked', description: `Unlock time has not passed yet. ${mins} min remaining.`, variant: 'destructive' })
+          return
+        }
+      } else if (!isPrivate) {
         let resolvedLicenseTokenId = licenseTokenId
 
         if (vaultData?.isForSale) {
@@ -164,7 +174,7 @@ function UnlockVaultContent() {
         validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
       })
 
-      const accessAuxData = isPrivate ? '0x' : encodeAccessAuxData(BigInt(licenseTokenId))
+      const accessAuxData = (isPrivate || isTimeLocked) ? '0x' : encodeAccessAuxData(BigInt(licenseTokenId))
 
       const result = await cdrClient.consumer.accessCDR({
         uuid: vaultId,
@@ -309,11 +319,13 @@ function UnlockVaultContent() {
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Unlock Vault</h1>
-      <p className="mt-2 text-muted text-base">
-        {vaultType === 'private'
-          ? 'Access your private vault using owner-only EOA credentials.'
-          : 'Access encrypted content using a valid license token or recover from your local backup.'}
-      </p>
+          <p className="mt-2 text-muted text-base">
+            {vaultType === 'private'
+              ? 'Access your private vault using owner-only EOA credentials.'
+              : vaultType === 'timelocked'
+              ? 'Access a time-locked vault after its on-chain unlock time has passed.'
+              : 'Access encrypted content using a valid license token or recover from your local backup.'}
+          </p>
         </div>
 
         <Card>
@@ -322,11 +334,13 @@ function UnlockVaultContent() {
         <KeyIcon className="h-5 w-5 text-accent" />
         <CardTitle>Vault Credentials</CardTitle>
       </div>
-      <CardDescription>
-        {prefilled
-          ? 'Credentials pre-filled from vault link'
-          : 'Provide the vault UUID and your license token ID'}
-      </CardDescription>
+        <CardDescription>
+          {prefilled
+            ? 'Credentials pre-filled from vault link'
+            : vaultType === 'timelocked'
+            ? 'Provide the vault UUID — no license token needed after unlock time'
+            : 'Provide the vault UUID and your license token ID'}
+        </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
       <Input
@@ -337,7 +351,7 @@ function UnlockVaultContent() {
         disabled={state === 'accessing' || prefilled}
         mono
       />
-      {vaultType !== 'private' && (
+        {vaultType !== 'private' && vaultType !== 'timelocked' && (
         <Input
           label="License Token ID"
           placeholder="e.g. 72508"
@@ -351,6 +365,13 @@ function UnlockVaultContent() {
         <div className="rounded-lg border border-accent/20 bg-accent-muted/30 px-4 py-3">
           <p className="text-sm text-muted">
             <span className="font-medium text-accent">Private vault</span> — only the owner can access. No license token required.
+          </p>
+        </div>
+      )}
+      {vaultType === 'timelocked' && (
+        <div className="rounded-lg border border-accent/20 bg-accent-muted/30 px-4 py-3">
+          <p className="text-sm text-muted">
+            <span className="font-medium text-accent">Time-locked vault</span> — anyone can access after the unlock time. No license token required.
           </p>
         </div>
       )}

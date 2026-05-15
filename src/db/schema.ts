@@ -1,7 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, pgEnum } from 'drizzle-orm/pg-core'
 
 export const vaultStatusEnum = pgEnum('vault_status', ['creating', 'active', 'accessed', 'failed'])
-export const vaultTypeEnum = pgEnum('vault_type', ['licensed', 'private'])
+export const vaultTypeEnum = pgEnum('vault_type', ['licensed', 'private', 'timelocked'])
 export const activityTypeEnum = pgEnum('activity_type', ['vault_created', 'license_minted', 'vault_accessed', 'vault_shared', 'ip_registered'])
 export const licenseTokenStatusEnum = pgEnum('license_token_status', ['active', 'revoked', 'expired'])
 
@@ -32,6 +32,7 @@ export const vaults = pgTable('vaults', {
   status: vaultStatusEnum('status').notNull().default('creating'),
   price: integer('price'),
   isForSale: boolean('is_for_sale').notNull().default(false),
+  unlockTime: timestamp('unlock_time', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

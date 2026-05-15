@@ -217,3 +217,13 @@ export const ShoppingCartIcon = forwardRef<SVGSVGElement, IconProps>(
   ),
 )
 ShoppingCartIcon.displayName = 'ShoppingCartIcon'
+
+export const ClockIcon = forwardRef<SVGSVGElement, IconProps>(
+  (props, ref) => (
+    <svg ref={ref} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+)
+ClockIcon.displayName = 'ClockIcon'
