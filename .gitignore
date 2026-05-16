@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# project reference files (not part of the dapp)
+/_project
+
+# opencode agent skills (local config)
+.agents/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
