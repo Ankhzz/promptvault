@@ -42,6 +42,9 @@ yarn-error.log*
 # opencode agent skills (local config)
 .agents/
 
+# local DB (SQLite)
+promptvault.db
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
