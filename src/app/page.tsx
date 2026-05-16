@@ -1,9 +1,19 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { usePrivy } from '@privy-io/react-auth'
 import { ShieldIcon, KeyIcon, LockIcon, ClockIcon, VaultIcon, ArrowRightIcon } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
+
+const VaultScene = dynamic(() => import('@/components/hero/VaultScene').then(m => m.VaultScene), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full min-h-[400px] flex items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+    </div>
+  ),
+})
 
 export default function LandingPage() {
   const { login, authenticated } = usePrivy()
@@ -38,54 +48,59 @@ export default function LandingPage() {
       </nav>
 
       <main className="pt-[59px]">
-        <section className="relative">
-          <div className="mx-auto max-w-[1200px] px-6 py-[120px]">
-            <div className="max-w-2xl space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-[16px] border border-border px-4 py-1.5 text-sm text-frost/70 transition-colors hover:border-muted">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent" />
-                </span>
-                Built on Story Protocol · Aeneid Testnet
+        <section className="relative overflow-hidden">
+          <div className="mx-auto max-w-[1200px] px-6 py-[100px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 rounded-[16px] border border-border px-4 py-1.5 text-sm text-frost/70 transition-colors hover:border-muted">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent" />
+                  </span>
+                  Built on Story Protocol · Aeneid Testnet
+                </div>
+
+                <h1 className="font-display text-[56px] leading-[1] tracking-[-0.05em] text-foreground">
+                  Encrypted AI Prompt{' '}
+                  <span className="text-gradient">Vaults</span>
+                </h1>
+
+                <p className="text-lg text-muted leading-[1.6] max-w-xl">
+                  Protect your intellectual property with threshold-encrypted vaults, license-gated access, and on-chain conditions. No single point of failure. No trust required.
+                </p>
+
+                <div className="flex items-center gap-4 pt-2">
+                  <button
+                    onClick={() => authenticated ? window.location.href = '/dashboard' : login()}
+                    className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
+                  >
+                    Get Started
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </button>
+                  <a
+                    href="#how-it-works"
+                    className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
+                  >
+                    Learn More
+                  </a>
+                </div>
+
+                <div className="flex items-center gap-4 pt-4 text-xs text-subtle">
+                  <a href={`${STORY_CHAIN.explorer}`} target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
+                    Aeneid Explorer
+                  </a>
+                  <span className="text-border">·</span>
+                  <a href="https://docs.story.foundation/developers/cdr-sdk/overview" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
+                    CDR SDK Docs
+                  </a>
+                  <span className="text-border">·</span>
+                  <a href="/faucet" className="hover:text-muted transition-colors">
+                    Testnet Faucet
+                  </a>
+                </div>
               </div>
-
-              <h1 className="font-display text-[56px] leading-[1] tracking-[-0.05em] text-foreground">
-                Encrypted AI Prompt{' '}
-                <span className="text-gradient">Vaults</span>
-              </h1>
-
-              <p className="text-lg text-muted leading-[1.6] max-w-xl">
-                Protect your intellectual property with threshold-encrypted vaults, license-gated access, and on-chain conditions. No single point of failure. No trust required.
-              </p>
-
-              <div className="flex items-center gap-4 pt-2">
-                <button
-                  onClick={() => authenticated ? window.location.href = '/dashboard' : login()}
-                  className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
-                >
-                  Get Started
-                  <ArrowRightIcon className="h-4 w-4" />
-                </button>
-                <a
-                  href="#how-it-works"
-                  className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors"
-                >
-                  Learn More
-                </a>
-              </div>
-
-              <div className="flex items-center gap-4 pt-4 text-xs text-subtle">
-                <a href={`${STORY_CHAIN.explorer}`} target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
-                  Aeneid Explorer
-                </a>
-                <span className="text-border">·</span>
-                <a href="https://docs.story.foundation/developers/cdr-sdk/overview" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
-                  CDR SDK Docs
-                </a>
-                <span className="text-border">·</span>
-                <a href="/faucet" className="hover:text-muted transition-colors">
-                  Testnet Faucet
-                </a>
+              <div className="hidden lg:block relative h-[500px]">
+                <VaultScene />
               </div>
             </div>
           </div>

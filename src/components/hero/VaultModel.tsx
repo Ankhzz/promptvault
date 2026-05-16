@@ -1,0 +1,116 @@
+'use client'
+
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { RoundedBox, Cylinder, Torus } from '@react-three/drei'
+import * as THREE from 'three'
+
+export function VaultModel() {
+  const groupRef = useRef<THREE.Group>(null)
+
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.25
+    }
+  })
+
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: '#050505',
+    metalness: 0.85,
+    roughness: 0.2,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.25,
+  })
+
+  const doorMat = new THREE.MeshPhysicalMaterial({
+    color: '#0d0d0d',
+    metalness: 0.8,
+    roughness: 0.25,
+    clearcoat: 0.15,
+  })
+
+  const doorInsetMat = new THREE.MeshPhysicalMaterial({
+    color: '#141414',
+    metalness: 0.6,
+    roughness: 0.5,
+  })
+
+  const metalMat = new THREE.MeshPhysicalMaterial({
+    color: '#1a1a1a',
+    metalness: 0.9,
+    roughness: 0.15,
+  })
+
+  const accentMat = new THREE.MeshPhysicalMaterial({
+    color: '#3b9eff',
+    metalness: 0.4,
+    roughness: 0.3,
+    emissive: '#3b9eff',
+    emissiveIntensity: 0.08,
+  })
+
+  return (
+    <group ref={groupRef} rotation={[0.15, 0.3, 0]}>
+      {/* Main vault body */}
+      <RoundedBox args={[2.6, 2.2, 1.8]} radius={0.06} smoothness={4}>
+        <primitive object={bodyMat} attach="material" />
+      </RoundedBox>
+
+      {/* Door */}
+      <RoundedBox args={[2.2, 1.8, 0.08]} position={[0, 0, 0.94]} radius={0.04} smoothness={4}>
+        <primitive object={doorMat} attach="material" />
+      </RoundedBox>
+
+      {/* Door inset panel */}
+      <RoundedBox args={[1.8, 1.4, 0.04]} position={[0, 0, 1.0]} radius={0.04} smoothness={4}>
+        <primitive object={doorInsetMat} attach="material" />
+      </RoundedBox>
+
+      {/* Dial outer ring */}
+      <Torus args={[0.2, 0.035, 16, 48]} position={[0, 0.2, 1.05]} rotation={[Math.PI / 2, 0, 0]}>
+        <primitive object={metalMat} attach="material" />
+      </Torus>
+
+      {/* Dial inner highlight ring */}
+      <Torus args={[0.19, 0.01, 12, 48]} position={[0, 0.2, 1.06]} rotation={[Math.PI / 2, 0, 0]}>
+        <primitive object={accentMat} attach="material" />
+      </Torus>
+
+      {/* Dial center */}
+      <Cylinder args={[0.12, 0.12, 0.04, 32]} position={[0, 0.2, 1.07]} rotation={[Math.PI / 2, 0, 0]}>
+        <primitive object={metalMat} attach="material" />
+      </Cylinder>
+
+      {/* Handle bar */}
+      <RoundedBox args={[0.5, 0.06, 0.06]} position={[0, -0.35, 1.02]} radius={0.03} smoothness={4}>
+        <primitive object={metalMat} attach="material" />
+      </RoundedBox>
+
+      {/* Handle grips */}
+      {[-0.22, 0.22].map((x) => (
+        <Cylinder key={`grip-${x}`} args={[0.04, 0.04, 0.1, 12]} position={[x, -0.35, 1.06]} rotation={[0, 0, Math.PI / 2]}>
+          <primitive object={metalMat} attach="material" />
+        </Cylinder>
+      ))}
+
+      {/* Hinges */}
+      {[-0.7, 0, 0.7].map((y, i) => (
+        <group key={`hinge-${i}`}>
+          <Cylinder args={[0.04, 0.04, 0.12, 12]} position={[-1.15, y * 0.55, 0.45]} rotation={[0.3, 0, Math.PI / 2]}>
+            <primitive object={metalMat} attach="material" />
+          </Cylinder>
+          <Cylinder args={[0.04, 0.04, 0.12, 12]} position={[-1.15, y * 0.55, -0.45]} rotation={[-0.3, 0, Math.PI / 2]}>
+            <primitive object={metalMat} attach="material" />
+          </Cylinder>
+        </group>
+      ))}
+
+      {/* Lock bolts on right side */}
+      {[-0.3, 0.3].map((y, i) => (
+        <RoundedBox key={`bolt-${i}`} args={[0.04, 0.08, 0.08]} position={[1.15, y * 0.3, 0.6]} radius={0.02} smoothness={3}>
+          <primitive object={metalMat} attach="material" />
+        </RoundedBox>
+      ))}
+    </group>
+  )
+}
