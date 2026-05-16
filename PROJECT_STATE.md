@@ -1,9 +1,9 @@
 # PROJECT_STATE.md — PromptVault
 
-**Last updated:** 2026-05-02  
-**Status:** Phase 1 Hardening Complete — Milestone Stable  
-**Build:** `next build` passes (Turbopack, production)  
-**TypeScript:** `tsc --noEmit` passes clean  
+**Last updated:** 2026-05-15
+**Status:** Hackathon MVP — All 3 vault types implemented, test routes removed
+**Build:** `next build` has pre-existing webpack crash (Next.js 16 internal); `next dev` works
+**TypeScript:** `tsc --noEmit` passes clean
 
 ---
 
@@ -128,7 +128,7 @@ Every vault creation, license mint, and access event
 | Story SDK | `@story-protocol/core-sdk` | ^1.4.4 |
 | CDR SDK | `@piplabs/cdr-sdk` (local alias) | custom build |
 | Ethereum | viem + wagmi | ^2.21.0 / ^2.9.0 |
-| Database | SQLite via Drizzle ORM (Turso compatible) | drizzle ^0.45.2 |
+| Database | PostgreSQL (Supabase) via Drizzle ORM | drizzle ^0.45.2 |
 | Styling | Tailwind CSS v4 + custom dark theme | @tailwindcss/postcss ^4.2.4 |
 | State | React Query (@tanstack/react-query) | ^5.0.0 |
 | Storage | Lighthouse Web3 SDK (IPFS) | ^0.3.0 |
@@ -170,7 +170,7 @@ Every vault creation, license mint, and access event
 | Data key at rest | AES-256-GCM with EIP-712-derived key | Active (v2) |
 | Data key in transit | Never sent to server; encrypted client-side | Active |
 | CSP | Full policy with report-uri; unsafe-eval dev-only | Active |
-| Test route protection | 404 unless NEXT_PUBLIC_ENABLE_TEST_ROUTES=true | Active |
+| Test route protection | Removed — test route dirs + middleware block deleted | Removed |
 | Rate limiting | 30 req/60s per IP (in-memory, prod only) | Active |
 | Log sanitization | cryptoLog() redacts keys/addresses; suppressed in prod | Active |
 | DB persist retry | Idempotent POST /api/vaults/retry-persist | Active |
@@ -229,7 +229,7 @@ Every vault creation, license mint, and access event
 - [x] Production build (`next build`) — passes
 - [x] TypeScript strict mode (`tsc --noEmit`) — passes
 - [x] Auth middleware: `/create`, `/unlock`, `/activity` → 307 redirect without cookies
-- [x] Test route protection: `/test`, `/test-cdr`, `/test-cdr-flow` → 404
+- [x] Test route cleanup: `/test`, `/test-cdr`, `/test-cdr-flow` directories removed; middleware block removed
 - [x] Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Permissions-Policy
 - [x] CSP report endpoint: POST `/api/csp-report` → 200
 - [x] Retry-persist API: POST `/api/vaults/retry-persist` → creates + idempotent on duplicate
@@ -245,7 +245,7 @@ Every vault creation, license mint, and access event
 - Chain boundary: AuthGuard enforces Aeneid 1315
 - Crypto boundary: raw dataKey never persists; only AES-GCM ciphertext in DB
 - CSP boundary: strict policy with violation reporting
-- Test boundary: test routes blocked by default in production
+- Test boundary: test routes removed entirely
 
 ---
 
