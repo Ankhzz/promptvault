@@ -800,7 +800,7 @@ export default function CreateVaultPage() {
         </Card>
 
         {step === 'done' && result.vaultUuid && (
-          <Card glow className="animate-fade-in-scale">
+          <Card className="animate-fade-in-scale border-accent/30">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-5 w-5 text-accent" />
@@ -837,7 +837,7 @@ export default function CreateVaultPage() {
             {!result.dbPersisted && (
               <CardFooter>
       <Button
-        variant="secondary"
+        variant="outline"
         size="sm"
         loading={retrying}
         disabled={retrying}
@@ -888,7 +888,7 @@ export default function CreateVaultPage() {
             )}
             {result.dbPersisted && (
               <CardFooter>
-                <Button variant="secondary" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
+                <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(result, null, 2))}>
                   Copy Details
                 </Button>
               </CardFooter>

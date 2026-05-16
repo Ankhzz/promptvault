@@ -34,8 +34,10 @@ export function AuthGuard({ children, requireChain = true }: AuthGuardProps) {
   if (!authenticated) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-        <ShieldIcon className="h-12 w-12 text-subtle mb-4" />
-        <p className="text-lg font-medium text-foreground mb-2">Authentication Required</p>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border mb-4">
+          <ShieldIcon className="h-7 w-7 text-muted" />
+        </div>
+        <p className="font-display text-lg text-foreground mb-2">Authentication Required</p>
         <p className="text-sm text-muted mb-6">Connect your wallet to access this page</p>
         <Button variant="primary" onClick={login}>Connect Wallet</Button>
       </div>
@@ -45,8 +47,10 @@ export function AuthGuard({ children, requireChain = true }: AuthGuardProps) {
   if (requireChain && wallets.length > 0 && !chainOk) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-        <UnlockIcon className="h-12 w-12 text-subtle mb-4" />
-        <p className="text-lg font-medium text-foreground mb-2">Switch to Aeneid Network</p>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border mb-4">
+          <UnlockIcon className="h-7 w-7 text-muted" />
+        </div>
+        <p className="font-display text-lg text-foreground mb-2">Switch to Aeneid Network</p>
         <p className="text-sm text-muted mb-6">This feature requires the Story Aeneid testnet (Chain ID: {STORY_CHAIN.id})</p>
         <Button variant="primary" onClick={async () => {
           if (wallets.length === 0) return

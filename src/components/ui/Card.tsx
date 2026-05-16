@@ -2,19 +2,17 @@ import { cn } from '@/lib/cn'
 import { type HTMLAttributes, forwardRef } from 'react'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  glow?: boolean
   hoverable?: boolean
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, glow, hoverable, children, ...props }, ref) => (
+  ({ className, hoverable, children, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'rounded-xl border border-border bg-surface p-6',
-        'transition-all duration-[var(--transition)]',
-        hoverable && 'hover:border-border hover:bg-surface-hover hover:shadow-md cursor-pointer',
-        glow && 'glow-accent',
+        'rounded-2xl border border-border bg-background p-8',
+        'transition-colors duration-[var(--transition)]',
+        hoverable && 'hover:border-foreground/10 cursor-pointer',
         className,
       )}
       {...props}
@@ -36,7 +34,7 @@ const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingEleme
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('font-display text-lg font-semibold tracking-tight text-foreground', className)}
+      className={cn('font-display text-lg tracking-tight text-foreground', className)}
       {...props}
     />
   ),

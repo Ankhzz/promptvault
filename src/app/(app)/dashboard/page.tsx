@@ -89,9 +89,9 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-10 animate-fade-in">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="font-display text-3xl tracking-tight">
             Welcome to <span className="text-gradient">PromptVault</span>
           </h1>
           <p className="mt-2 text-muted text-base max-w-xl">
@@ -119,7 +119,7 @@ export default function DashboardPage() {
                     <CardContent>
                       <p className="text-sm text-muted mb-1">{stat.label}</p>
                       <p className={cn(
-                        'font-display text-3xl font-bold tracking-tight',
+                        'font-display text-3xl tracking-tight',
                         stat.accent ? 'text-gradient' : 'text-foreground',
                       )}>
                         {stat.value}
@@ -131,7 +131,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-semibold tracking-tight">Your Vaults</h2>
+              <h2 className="font-display text-xl tracking-tight">Your Vaults</h2>
               <Link href="/create">
                 <Button variant="primary" size="sm">
                   Create Vault
@@ -168,7 +168,7 @@ export default function DashboardPage() {
                           </div>
                           <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId ? `${vault.ipId.slice(0, 10)}...${vault.ipId.slice(-6)}` : 'Private vault'}</p>
                         </div>
-                        <Button variant="secondary" size="sm">View</Button>
+                        <Button variant="outline" size="sm">View</Button>
                       </div>
                     </Card>
                   </Link>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 <p className="text-muted text-sm">No vaults yet</p>
                 <p className="text-subtle text-xs mt-1 mb-6">Create your first encrypted vault to get started</p>
                 <Link href="/create">
-                  <Button variant="secondary" size="sm">
+                  <Button variant="outline" size="sm">
                     Create First Vault
                   </Button>
                 </Link>
@@ -194,8 +194,8 @@ export default function DashboardPage() {
                 <Card key={title} hoverable>
                   <CardHeader>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-muted">
-                        <Icon className="h-5 w-5 text-accent" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[6px] border border-border">
+                        <Icon className="h-5 w-5 text-foreground" />
                       </div>
                       <Badge variant="accent" dot>{badge}</Badge>
                     </div>
@@ -206,9 +206,9 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <Card className="flex items-center justify-between p-6 border-accent/20 bg-accent-muted/30">
+            <Card className="flex items-center justify-between p-6 border-accent/30">
               <div>
-                <p className="font-display font-semibold text-foreground">Get Started</p>
+                <p className="font-display text-foreground">Get Started</p>
                 <p className="text-sm text-muted mt-0.5">Connect your wallet to create and manage encrypted vaults</p>
               </div>
               <ArrowRightIcon className="h-5 w-5 text-accent" />

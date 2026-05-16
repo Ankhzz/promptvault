@@ -12,22 +12,22 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    'bg-accent text-background hover:bg-accent-hover shadow-sm shadow-accent-muted active:bg-accent',
+    'bg-transparent text-foreground border border-accent hover:bg-accent-muted active:bg-accent-strong',
   secondary:
     'bg-surface text-foreground hover:bg-surface-hover border border-border active:bg-surface-active',
   ghost:
     'bg-transparent text-muted hover:text-foreground hover:bg-surface active:bg-surface-active',
   destructive:
-    'bg-destructive-muted text-destructive hover:bg-destructive/20 active:bg-destructive/30',
+    'bg-transparent text-destructive border border-destructive/40 hover:bg-destructive-muted active:bg-destructive/20',
   outline:
-    'bg-transparent text-foreground border border-border hover:bg-surface hover:border-border active:bg-surface-active',
+    'bg-transparent text-muted border border-border hover:text-foreground hover:bg-surface active:bg-surface-active',
 }
 
 const sizeStyles: Record<Size, string> = {
-  sm: 'h-8 px-3 text-xs gap-1.5 rounded-md',
-  md: 'h-10 px-4 text-sm gap-2 rounded-lg',
-  lg: 'h-12 px-6 text-base gap-2.5 rounded-xl',
-  icon: 'h-10 w-10 rounded-lg',
+  sm: 'h-8 px-3 text-xs gap-1.5 rounded-[var(--radius-sm)]',
+  md: 'h-10 px-4 text-sm gap-2 rounded-[var(--radius-sm)]',
+  lg: 'h-12 px-6 text-base gap-2.5 rounded-[var(--radius-sm)]',
+  icon: 'h-10 w-10 rounded-[var(--radius-sm)]',
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -37,7 +37,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center font-medium transition-all duration-[var(--transition-fast)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:pointer-events-none disabled:opacity-40',
         'select-none whitespace-nowrap',
         variantStyles[variant],

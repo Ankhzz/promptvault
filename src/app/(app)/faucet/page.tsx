@@ -14,9 +14,9 @@ export default function FaucetPage() {
   return (
     <AppShell>
       <AuthGuard>
-        <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
+        <div className="max-w-2xl mx-auto space-y-10 animate-fade-in">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Testnet Faucet</h1>
+            <h1 className="font-display text-3xl tracking-tight">Testnet Faucet</h1>
             <p className="mt-2 text-muted text-base">
               Get free IP tokens on the Aeneid testnet to create vaults, mint license tokens, and interact with CDR.
             </p>
@@ -33,7 +33,7 @@ export default function FaucetPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
+              <div className="rounded-[6px] border border-border bg-surface p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">How to get testnet tokens</h3>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-muted">
                   <li>Click the button below to open the official Story faucet</li>
@@ -43,7 +43,7 @@ export default function FaucetPage() {
                 </ol>
               </div>
 
-              <div className="rounded-lg border border-accent/20 bg-accent-muted/30 px-4 py-3">
+              <div className="rounded-[6px] border border-accent/30 bg-accent-muted px-4 py-3">
                 <p className="text-sm text-muted">
                   <span className="font-medium text-accent">Network:</span> Story Aeneid Testnet (Chain ID: {STORY_CHAIN.id})
                 </p>
@@ -57,7 +57,7 @@ export default function FaucetPage() {
                 </Button>
               </a>
               <a href={EXPLORER_URL} target="_blank" rel="noopener noreferrer">
-                <Button variant="secondary" size="lg">
+                <Button variant="outline" size="lg">
                   Explorer
                   <ExternalLinkIcon className="h-4 w-4 ml-2" />
                 </Button>
@@ -71,34 +71,20 @@ export default function FaucetPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-muted text-xs font-bold text-accent">1</span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Create Licensed Vaults</p>
-                    <p className="text-xs text-muted">Register IP assets, mint license tokens, encrypt content via CDR</p>
+                {[
+                  { num: '1', title: 'Create Licensed Vaults', desc: 'Register IP assets, mint license tokens, encrypt content via CDR' },
+                  { num: '2', title: 'Create Private Vaults', desc: 'Owner-only EOA access with CDR threshold encryption' },
+                  { num: '3', title: 'Create Time-Locked Vaults', desc: 'On-chain unlock condition that gates access by timestamp' },
+                  { num: '4', title: 'Buy & Unlock Vault Content', desc: 'Purchase license tokens and decrypt content via CDR network' },
+                ].map(({ num, title, desc }) => (
+                  <div key={num} className="flex items-start gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border border-border text-xs font-mono text-muted">{num}</span>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{title}</p>
+                      <p className="text-xs text-muted">{desc}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-muted text-xs font-bold text-accent">2</span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Create Private Vaults</p>
-                    <p className="text-xs text-muted">Owner-only EOA access with CDR threshold encryption</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-muted text-xs font-bold text-accent">3</span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Create Time-Locked Vaults</p>
-                    <p className="text-xs text-muted">On-chain unlock condition that gates access by timestamp</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-muted text-xs font-bold text-accent">4</span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Buy & Unlock Vault Content</p>
-                    <p className="text-xs text-muted">Purchase license tokens and decrypt content via CDR network</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>

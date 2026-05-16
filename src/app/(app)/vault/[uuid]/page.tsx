@@ -345,7 +345,7 @@ export default function VaultDetailPage() {
           <VaultIcon className="h-12 w-12 text-subtle mb-4" />
           <p className="text-muted text-sm">Invalid vault ID</p>
           <p className="text-subtle text-xs mt-1 mb-6">The URL must contain a positive integer vault ID</p>
-          <Button variant="secondary" size="sm" onClick={() => router.push('/')}>Back to Dashboard</Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/')}>Back to Dashboard</Button>
         </Card>
         </div>
       </AppShell>
@@ -364,11 +364,11 @@ export default function VaultDetailPage() {
     return (
       <AppShell>
         <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
-          <div className="h-8 w-48 bg-surface-active rounded-lg animate-pulse" />
+          <div className="h-8 w-48 bg-surface-active rounded-[6px] animate-pulse" />
           <div className="h-4 w-64 bg-surface-active rounded animate-pulse" />
           <div className="space-y-4">
-            <div className="h-40 bg-surface-active rounded-xl animate-pulse" />
-            <div className="h-32 bg-surface-active rounded-xl animate-pulse" />
+            <div className="h-40 bg-surface-active rounded-2xl animate-pulse" />
+            <div className="h-32 bg-surface-active rounded-2xl animate-pulse" />
           </div>
         </div>
       </AppShell>
@@ -383,7 +383,7 @@ export default function VaultDetailPage() {
             <VaultIcon className="h-12 w-12 text-subtle mb-4" />
             <p className="text-muted text-sm">Vault not found</p>
             <p className="text-subtle text-xs mt-1 mb-6">UUID {uuid} does not exist or you don't have access</p>
-            <Button variant="secondary" size="sm" onClick={() => router.push('/')}>
+            <Button variant="outline" size="sm" onClick={() => router.push('/')}>
               Back to Dashboard
             </Button>
           </Card>
@@ -403,13 +403,13 @@ export default function VaultDetailPage() {
         <div className="flex items-start gap-4">
           <button
             onClick={() => router.push('/')}
-            className="mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors"
+            className="mt-1 flex h-8 w-8 items-center justify-center rounded-[6px] text-muted hover:text-foreground hover:bg-surface transition-colors"
           >
             <ArrowLeftIcon className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-3xl font-bold tracking-tight truncate">
+              <h1 className="font-display text-3xl tracking-tight truncate">
                 {vault.name}
               </h1>
               <Badge variant={status.badge} dot>{status.label}</Badge>
@@ -722,7 +722,7 @@ export default function VaultDetailPage() {
         Decrypt & View
       </Button>
         ) : (
-                  <Button variant="secondary" size="md"
+                  <Button variant="outline" size="md"
                     onClick={() => {
                       const params = new URLSearchParams({ vaultId: String(uuid) })
                       if (!isPrivate && !isTimeLocked) {
@@ -749,7 +749,7 @@ export default function VaultDetailPage() {
               {decryptState === 'error' && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
                   <p className="text-sm text-destructive">{decryptError}</p>
-                  <Button variant="secondary" size="sm" className="mt-2" onClick={() => { setDecryptState('idle'); setDecryptError(null) }}>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => { setDecryptState('idle'); setDecryptError(null) }}>
                     Retry
                   </Button>
                 </div>
@@ -781,7 +781,7 @@ export default function VaultDetailPage() {
                       <DownloadIcon className="h-4 w-4 mr-2" />
                       Download {decryptedFile.name}
                     </Button>
-                    <Button variant="secondary" size="md" onClick={() => { setDecryptState('idle'); setDecryptedFile(null); setDecryptedText(null); if (decryptedObjectUrl) { URL.revokeObjectURL(decryptedObjectUrl); setDecryptedObjectUrl(null) } }}>
+                    <Button variant="outline" size="md" onClick={() => { setDecryptState('idle'); setDecryptedFile(null); setDecryptedText(null); if (decryptedObjectUrl) { URL.revokeObjectURL(decryptedObjectUrl); setDecryptedObjectUrl(null) } }}>
                       Clear
                     </Button>
                   </div>

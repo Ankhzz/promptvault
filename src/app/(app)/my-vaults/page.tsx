@@ -202,45 +202,45 @@ export default function MyVaultsPage() {
   return (
     <AppShell>
       <AuthGuard>
-      <div className="space-y-8 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
-              My <span className="text-gradient">Library</span>
-            </h1>
-            <p className="mt-2 text-muted text-base max-w-xl">
-              Manage your vaults and access purchased content
-            </p>
-          </div>
+        <div className="space-y-10 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-3xl tracking-tight">
+                My <span className="text-gradient">Library</span>
+              </h1>
+              <p className="mt-2 text-muted text-base max-w-xl">
+                Manage your vaults and access purchased content
+              </p>
+            </div>
           <Link href="/create">
             <Button variant="primary" size="sm">Create Vault</Button>
           </Link>
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                'flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all',
-                activeTab === tab.key
-                  ? 'bg-surface-active text-foreground shadow-sm'
-                  : 'text-subtle hover:text-foreground'
-              )}
-            >
-              {tab.label}
-              <span className={cn(
-                'inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none',
-                activeTab === tab.key
-                  ? 'bg-accent/20 text-accent'
-                  : 'bg-surface-active text-subtle'
-              )}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
+          <div className="flex items-center gap-1 rounded-[6px] border border-border bg-surface p-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  'flex items-center gap-2 rounded-[6px] px-4 py-2 text-sm font-medium transition-colors duration-[var(--transition-fast)]',
+                  activeTab === tab.key
+                    ? 'bg-surface-active text-foreground'
+                    : 'text-subtle hover:text-foreground'
+                )}
+              >
+                {tab.label}
+                <span className={cn(
+                  'inline-flex items-center justify-center rounded-[6px] px-1.5 py-0.5 text-[11px] font-bold leading-none',
+                  activeTab === tab.key
+                    ? 'text-accent'
+                    : 'text-subtle'
+                )}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
 
         {loading ? (
           <div className="space-y-3">
@@ -271,12 +271,12 @@ export default function MyVaultsPage() {
                 : 'Create your first encrypted vault to get started'}
             </p>
             {activeTab === 'purchased' ? (
-              <Link href="/explore">
-                <Button variant="secondary" size="sm">Browse Marketplace</Button>
-              </Link>
-            ) : (
-              <Link href="/create">
-                <Button variant="secondary" size="sm">Create First Vault</Button>
+                <Link href="/explore">
+                  <Button variant="outline" size="sm">Browse Marketplace</Button>
+                </Link>
+              ) : (
+                <Link href="/create">
+                  <Button variant="outline" size="sm">Create First Vault</Button>
               </Link>
             )}
           </Card>
@@ -350,9 +350,9 @@ export default function MyVaultsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Link href={`/vault/${vault.uuid}`}>
-                          <Button variant="secondary" size="sm">
-                            <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                <Link href={`/vault/${vault.uuid}`}>
+                  <Button variant="outline" size="sm">
+                    <EyeIcon className="h-3.5 w-3.5 mr-1" />
                             View
                           </Button>
                         </Link>
@@ -382,35 +382,35 @@ export default function MyVaultsPage() {
                               disabled={isSavingThis}
                               className="flex-1"
                             />
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={isSavingThis}
-                              disabled={isSavingThis}
-                              onClick={() => handleEnableSale(vault.uuid)}
-                            >
-                              Enable Sale
-                            </Button>
-                          </div>
-                        ) : isEditingThis ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              placeholder="New price (USD cents)"
-                              value={priceDraft[vault.uuid] ?? String(vault.price ?? '')}
-                              onChange={(e) => setPriceDraft(prev => ({ ...prev, [vault.uuid]: e.target.value }))}
-                              disabled={isSavingThis}
-                              className="flex-1"
-                            />
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={isSavingThis}
-                              disabled={isSavingThis}
-                              onClick={() => handleEditPrice(vault.uuid)}
-                            >
-                              Save
-                            </Button>
+            <Button
+                  variant="outline"
+                  size="sm"
+                  loading={isSavingThis}
+                  disabled={isSavingThis}
+                  onClick={() => handleEnableSale(vault.uuid)}
+                >
+                  Enable Sale
+                </Button>
+              </div>
+            ) : isEditingThis ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="New price (USD cents)"
+                  value={priceDraft[vault.uuid] ?? String(vault.price ?? '')}
+                  onChange={(e) => setPriceDraft(prev => ({ ...prev, [vault.uuid]: e.target.value }))}
+                  disabled={isSavingThis}
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={isSavingThis}
+                  disabled={isSavingThis}
+                  onClick={() => handleEditPrice(vault.uuid)}
+                >
+                  Save
+                </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -425,17 +425,17 @@ export default function MyVaultsPage() {
                             <span className="text-sm text-muted">
                               Price: <span className="font-medium text-foreground">{formatPrice(vault.price)}</span>
                             </span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              disabled={isSavingThis}
-                              onClick={() => {
-                                setPriceDraft(prev => ({ ...prev, [vault.uuid]: String(vault.price ?? '') }))
-                                setEditingVault(vault.uuid)
-                              }}
-                            >
-                              Edit Price
-                            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSavingThis}
+                  onClick={() => {
+                    setPriceDraft(prev => ({ ...prev, [vault.uuid]: String(vault.price ?? '') }))
+                    setEditingVault(vault.uuid)
+                  }}
+                >
+                  Edit Price
+                </Button>
                             <Button
                               variant="ghost"
                               size="sm"

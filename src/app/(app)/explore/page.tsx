@@ -36,9 +36,9 @@ export default function ExplorePage() {
 
   return (
     <AppShell>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-10 animate-fade-in">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="font-display text-3xl tracking-tight">
             <span className="text-gradient">Explore</span> Vaults
           </h1>
           <p className="mt-2 text-muted text-base max-w-xl">
@@ -64,7 +64,7 @@ export default function ExplorePage() {
             <p className="text-muted text-sm">No vaults for sale yet</p>
             <p className="text-subtle text-xs mt-1 mb-6">Check back later for community listings</p>
             <Link href="/">
-              <Button variant="secondary" size="sm">Back to Dashboard</Button>
+              <Button variant="outline" size="sm">Back to Dashboard</Button>
             </Link>
           </Card>
         ) : (
@@ -76,7 +76,7 @@ export default function ExplorePage() {
                     <h3 className="text-sm font-medium text-foreground truncate">
                       {vault.name}
                     </h3>
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent-muted px-2.5 py-0.5 text-xs font-medium text-accent">
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-[6px] border border-accent/30 px-2 py-0.5 text-xs text-accent">
                       <PricetagIcon className="h-3 w-3" />
                       {formatPrice(vault.price)}
                     </span>
@@ -96,7 +96,7 @@ export default function ExplorePage() {
                   </div>
 
                   <Link href={`/vault/${vault.uuid}`} className="block">
-                    <Button variant="secondary" size="sm" className="w-full">
+                    <Button variant="outline" size="sm" className="w-full">
                       <EyeIcon className="h-3.5 w-3.5 mr-1" />
                       View Vault
                     </Button>

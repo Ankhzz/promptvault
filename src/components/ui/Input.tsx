@@ -23,13 +23,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'flex h-10 w-full rounded-lg border bg-background px-3 py-2 text-sm',
+            'flex h-10 w-full rounded-[6px] border bg-background px-3 py-2 text-sm',
             'border-border text-foreground placeholder:text-subtle',
             'transition-colors duration-[var(--transition-fast)]',
-            'hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20',
+            'hover:border-muted focus:border-accent focus:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-40',
             mono && 'font-mono text-xs',
-            error && 'border-destructive focus:border-destructive focus:ring-destructive/20',
+            error && 'border-destructive focus:border-destructive',
             className,
           )}
           {...props}

@@ -1,9 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/cn'
-import { VaultIcon, GridIcon, ActivityIcon, PlusIcon, ShieldIcon, UnlockIcon, XIcon, GlobeIcon, DropletIcon } from '@/components/Icons'
+import { useTheme } from '@/lib/useTheme'
+import { VaultIcon, GridIcon, ActivityIcon, PlusIcon, UnlockIcon, XIcon, GlobeIcon, DropletIcon, SunIcon, MoonIcon } from '@/components/Icons'
 import { WalletStatus } from '@/components/WalletStatus'
 
 const navItems = [
@@ -22,6 +24,27 @@ function isActiveNav(href: string, pathname: string) {
   return pathname.startsWith(href)
 }
 
+function LogoBrand() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Image src="/logo.svg" alt="PromptVault" width={28} height={11} className="shrink-0" />
+    </div>
+  )
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme()
+  return (
+    <button
+      onClick={toggle}
+      className="flex h-8 w-8 items-center justify-center rounded-[6px] text-muted hover:text-foreground hover:bg-surface transition-colors duration-[var(--transition-fast)]"
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+    </button>
+  )
+}
+
 export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
 
@@ -35,9 +58,9 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             href={href}
             onClick={onClose}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-[var(--transition-fast)]',
+              'flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm transition-colors duration-[var(--transition-fast)]',
               active
-                ? 'bg-accent-muted text-accent'
+                ? 'text-accent bg-accent-muted'
                 : 'text-muted hover:text-foreground hover:bg-surface',
             )}
           >
@@ -51,12 +74,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   return (
     <>
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-border bg-elevated">
-        <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
-          <ShieldIcon className="h-7 w-7 text-accent" />
-          <span className="font-display text-lg font-bold tracking-tight text-gradient">
-            PromptVault
-          </span>
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-60 flex-col border-r border-border bg-elevated">
+        <div className="flex h-14 items-center justify-between px-5 border-b border-border">
+          <LogoBrand />
+          <ThemeToggle />
         </div>
         {navContent}
         <div className="border-t border-border px-4 py-4">
@@ -67,17 +88,15 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-          <aside className="fixed inset-y-0 left-0 w-64 flex flex-col border-r border-border bg-elevated animate-slide-in-left">
-            <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <ShieldIcon className="h-7 w-7 text-accent" />
-                <span className="font-display text-lg font-bold tracking-tight text-gradient">
-                  PromptVault
-                </span>
+          <aside className="fixed inset-y-0 left-0 w-60 flex flex-col border-r border-border bg-elevated animate-slide-in-left">
+            <div className="flex h-14 items-center justify-between px-5 border-b border-border">
+              <LogoBrand />
+              <div className="flex items-center gap-1">
+                <ThemeToggle />
+                <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-[6px] text-muted hover:text-foreground" aria-label="Close menu">
+                  <XIcon className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={onClose} className="text-muted hover:text-foreground p-1" aria-label="Close menu">
-                <XIcon className="h-5 w-5" />
-              </button>
             </div>
             {navContent}
             <div className="border-t border-border px-4 py-4">

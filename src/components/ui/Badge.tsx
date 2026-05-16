@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 import { type HTMLAttributes, forwardRef } from 'react'
 
-type BadgeVariant = 'default' | 'accent' | 'warning' | 'destructive' | 'info' | 'outline'
+type BadgeVariant = 'default' | 'accent' | 'warning' | 'destructive' | 'info' | 'outline' | 'success'
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant
@@ -9,11 +9,12 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: 'bg-surface-active text-muted border-border',
-  accent: 'bg-accent-muted text-accent border-accent/20',
-  warning: 'bg-warning-muted text-warning border-warning/20',
-  destructive: 'bg-destructive-muted text-destructive border-destructive/20',
-  info: 'bg-info-muted text-info border-info/20',
+  default: 'bg-transparent text-muted border-border',
+  accent: 'bg-transparent text-accent border-accent/30',
+  warning: 'bg-transparent text-warning border-warning/30',
+  destructive: 'bg-transparent text-destructive border-destructive/30',
+  info: 'bg-transparent text-info border-info/30',
+  success: 'bg-transparent text-success border-success/30',
   outline: 'bg-transparent text-muted border-border',
 }
 
@@ -22,7 +23,7 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     <span
       ref={ref}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5',
+        'inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-0.5',
         'text-xs font-medium whitespace-nowrap',
         variantStyles[variant],
         className,

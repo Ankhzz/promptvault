@@ -383,7 +383,7 @@ function UnlockVaultContent() {
               {state === 'accessing' ? 'Decrypting...' : 'Unlock via CDR Network'}
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               size="lg"
               onClick={accessVaultLocal}
               disabled={state === 'accessing'}
@@ -395,7 +395,7 @@ function UnlockVaultContent() {
         </Card>
 
         {state === 'done' && recoveredKey && (
-          <Card glow className="animate-fade-in-scale">
+          <Card className="animate-fade-in-scale border-accent/30">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-5 w-5 text-accent" />
@@ -445,7 +445,7 @@ function UnlockVaultContent() {
             <CardFooter className="flex gap-3">
               <Badge variant="accent" dot>Decrypted</Badge>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 onClick={() => router.push(`/vault/${vaultId}`)}
               >
