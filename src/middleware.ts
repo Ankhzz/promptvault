@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-const TEST_ROUTES = ['/test', '/test-cdr', '/test-cdr-flow']
-
 const PROTECTED_ROUTES = ['/create', '/unlock', '/activity']
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -48,6 +46,9 @@ function getCsp(host: string): string {
     `report-uri ${isDev ? 'http' : 'https'}://${host}/api/csp-report`,
   ]
 
+  const defaultCometUrl = 'http://172.192.41.96:26657'
+  const cometUrl = process.env.NEXT_PUBLIC_COMET_RPC_URL || defaultCometUrl
+
   const connectSrc = [
     "'self'",
     'https://aeneid.storyrpc.io',
@@ -60,13 +61,14 @@ function getCsp(host: string): string {
     'https://api.lighthouse.storage',
     'https://upload.lighthouse.storage',
     'https://*.supabase.co',
+    cometUrl,
   ]
 
   if (isDev) {
     return [
       ...base,
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-      `connect-src ${connectSrc.join(' ')} https://172.192.41.96:26657`,
+      `connect-src ${connectSrc.join(' ')}`,
     ].join('; ')
   }
 
@@ -79,14 +81,6 @@ function getCsp(host: string): string {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  if (process.env.NEXT_PUBLIC_ENABLE_TEST_ROUTES !== 'true') {
-    for (const route of TEST_ROUTES) {
-      if (pathname === route || pathname.startsWith(route + '/')) {
-        return new NextResponse(null, { status: 404 })
-      }
-    }
-  }
 
   const isProtected = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/'),
