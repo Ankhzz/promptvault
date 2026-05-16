@@ -13,7 +13,6 @@
     "@privy-io/react-auth": "^1.78.0",
     "@privy-io/wagmi": "^0.2.0",
     "@story-protocol/core-sdk": "^1.4.4",
-    "@tanstack/react-query": "^5.0.0",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.4",

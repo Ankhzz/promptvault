@@ -47,6 +47,7 @@ export default function ActivityPage() {
 
   return (
     <AppShell>
+      <AuthGuard>
       <div className="space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Activity</h1>
@@ -65,7 +66,7 @@ export default function ActivityPage() {
           <div className="space-y-3">
             {entries.map((item) => {
               const config = typeConfig[item.type]
-              const details = item.details ? JSON.parse(item.details) : {}
+              const details = item.details ? safelyParseDetails(item.details) : {}
               return (
                 <Card key={item.id} className="p-4">
                   <div className="flex items-start gap-4">
@@ -87,7 +88,7 @@ export default function ActivityPage() {
                         <p className="text-xs text-muted leading-relaxed">
                           {details.name && `Name: ${details.name}`}
                           {details.licenseTokenId && ` · Token #${details.licenseTokenId}`}
-                          {details.ipId && ` · IP ${details.ipId.slice(0, 10)}...`}
+                          {details.ipId && ` · IP ${String(details.ipId).slice(0, 10)}...`}
                         </p>
                       )}
                       <div className="flex items-center gap-3 pt-1">
@@ -115,6 +116,15 @@ export default function ActivityPage() {
           </div>
         )}
       </div>
+      </AuthGuard>
     </AppShell>
   )
+}
+
+function safelyParseDetails(raw: string): Record<string, string | number | undefined> {
+  try {
+    return JSON.parse(raw) as Record<string, string | number | undefined>
+  } catch {
+    return {}
+  }
 }

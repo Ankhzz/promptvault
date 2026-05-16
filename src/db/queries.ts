@@ -163,15 +163,23 @@ export async function getUserStats(walletAddress: string) {
   }
 }
 
-export async function setVaultPrice(uuid: number, price: number | null) {
+export async function setVaultPrice(uuid: number, price: number | null, callerAddress: string) {
   const db = await getDb()
+  const vault = await getVaultByUuid(uuid)
+  if (!vault || vault.ownerAddress.toLowerCase() !== callerAddress.toLowerCase()) {
+    throw new Error('Not authorized: caller is not the vault owner')
+  }
   await db.update(vaults)
     .set({ price, updatedAt: new Date() })
     .where(eq(vaults.uuid, uuid))
 }
 
-export async function setVaultForSale(uuid: number, isForSale: boolean) {
+export async function setVaultForSale(uuid: number, isForSale: boolean, callerAddress: string) {
   const db = await getDb()
+  const vault = await getVaultByUuid(uuid)
+  if (!vault || vault.ownerAddress.toLowerCase() !== callerAddress.toLowerCase()) {
+    throw new Error('Not authorized: caller is not the vault owner')
+  }
   const updates: Partial<typeof vaults.$inferInsert> = { isForSale, updatedAt: new Date() }
   if (!isForSale) updates.price = null
   await db.update(vaults)

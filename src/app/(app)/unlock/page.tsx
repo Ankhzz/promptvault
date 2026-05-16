@@ -308,16 +308,9 @@ function UnlockVaultContent() {
     }
   }, [vaultId, wallets, addToast, storeKeyAndFinish, router])
 
-  if (!authenticated) {
-    return (
-      <AppShell>
-        <AuthGuard>{null}</AuthGuard>
-      </AppShell>
-    )
-  }
-
   return (
     <AppShell>
+      <AuthGuard>
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Unlock Vault</h1>
@@ -462,6 +455,7 @@ function UnlockVaultContent() {
           </Card>
         )}
       </div>
+      </AuthGuard>
     </AppShell>
   )
 }

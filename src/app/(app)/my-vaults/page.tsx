@@ -118,10 +118,14 @@ export default function MyVaultsPage() {
       addToast({ title: 'Invalid price', description: 'Enter a positive price in USD cents', variant: 'warning' })
       return
     }
+    if (!address) {
+      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+      return
+    }
     setSaving(uuid)
     try {
-      await setVaultPrice(uuid, cents)
-      await setVaultForSale(uuid, true)
+      await setVaultPrice(uuid, cents, address)
+      await setVaultForSale(uuid, true, address)
       addToast({ title: 'Vault listed for sale', description: formatPrice(cents), variant: 'accent' })
       await refreshVaults()
     } catch {
@@ -129,7 +133,7 @@ export default function MyVaultsPage() {
     } finally {
       setSaving(null)
     }
-  }, [priceDraft, addToast, refreshVaults])
+  }, [priceDraft, addToast, refreshVaults, address])
 
   const handleEditPrice = useCallback(async (uuid: number) => {
     const raw = priceDraft[uuid]
@@ -138,9 +142,13 @@ export default function MyVaultsPage() {
       addToast({ title: 'Invalid price', description: 'Enter a positive price in USD cents', variant: 'warning' })
       return
     }
+    if (!address) {
+      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+      return
+    }
     setSaving(uuid)
     try {
-      await setVaultPrice(uuid, cents)
+      await setVaultPrice(uuid, cents, address)
       setEditingVault(null)
       addToast({ title: 'Price updated', description: formatPrice(cents), variant: 'accent' })
       await refreshVaults()
@@ -149,12 +157,16 @@ export default function MyVaultsPage() {
     } finally {
       setSaving(null)
     }
-  }, [priceDraft, addToast, refreshVaults])
+  }, [priceDraft, addToast, refreshVaults, address])
 
   const handleDisableSale = useCallback(async (uuid: number) => {
+    if (!address) {
+      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+      return
+    }
     setSaving(uuid)
     try {
-      await setVaultForSale(uuid, false)
+      await setVaultForSale(uuid, false, address)
       addToast({ title: 'Sale disabled', variant: 'default' })
       await refreshVaults()
     } catch {
@@ -162,7 +174,7 @@ export default function MyVaultsPage() {
     } finally {
       setSaving(null)
     }
-  }, [addToast, refreshVaults])
+  }, [addToast, refreshVaults, address])
 
   const statusConfig: Record<string, { variant: 'default' | 'accent' | 'warning' | 'destructive'; label: string }> = {
     active: { variant: 'accent', label: 'Active' },
@@ -187,16 +199,9 @@ export default function MyVaultsPage() {
     { key: 'purchased', label: 'Purchased', count: purchasedVaults.length },
   ]
 
-  if (!authenticated) {
-    return (
-      <AppShell>
-        <AuthGuard>{null}</AuthGuard>
-      </AppShell>
-    )
-  }
-
   return (
     <AppShell>
+      <AuthGuard>
       <div className="space-y-8 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
@@ -451,6 +456,7 @@ export default function MyVaultsPage() {
           </div>
         )}
       </div>
+      </AuthGuard>
     </AppShell>
   )
 }
