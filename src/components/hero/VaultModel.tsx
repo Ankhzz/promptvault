@@ -15,30 +15,30 @@ export function VaultModel() {
   })
 
   const bodyMat = new THREE.MeshPhysicalMaterial({
-    color: '#050505',
-    metalness: 0.85,
-    roughness: 0.2,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.25,
+    color: '#1a1a1a',
+    metalness: 0.7,
+    roughness: 0.3,
+    clearcoat: 0.15,
+    clearcoatRoughness: 0.3,
   })
 
   const doorMat = new THREE.MeshPhysicalMaterial({
-    color: '#0d0d0d',
-    metalness: 0.8,
-    roughness: 0.25,
-    clearcoat: 0.15,
+    color: '#262626',
+    metalness: 0.65,
+    roughness: 0.35,
+    clearcoat: 0.1,
   })
 
   const doorInsetMat = new THREE.MeshPhysicalMaterial({
-    color: '#141414',
-    metalness: 0.6,
+    color: '#2e2e2e',
+    metalness: 0.5,
     roughness: 0.5,
   })
 
   const metalMat = new THREE.MeshPhysicalMaterial({
-    color: '#1a1a1a',
-    metalness: 0.9,
-    roughness: 0.15,
+    color: '#3a3a3a',
+    metalness: 0.8,
+    roughness: 0.2,
   })
 
   const accentMat = new THREE.MeshPhysicalMaterial({

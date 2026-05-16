@@ -58,13 +58,13 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             href={href}
             onClick={onClose}
             className={cn(
-              'flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm transition-colors duration-[var(--transition-fast)]',
+              'flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm transition-all duration-[var(--transition-fast)] group',
               active
                 ? 'text-accent bg-accent-muted'
                 : 'text-muted hover:text-foreground hover:bg-surface',
             )}
           >
-            <Icon className="h-[18px] w-[18px]" />
+            <Icon className="h-[18px] w-[18px] transition-transform duration-[var(--transition-fast)] group-hover:scale-110" />
             {label}
           </Link>
         )

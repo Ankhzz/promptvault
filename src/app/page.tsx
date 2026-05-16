@@ -29,18 +29,18 @@ export default function LandingPage() {
             {authenticated ? (
               <a
                 href="/dashboard"
-                className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
+                className="group inline-flex items-center gap-2 border border-accent rounded-[6px] px-4 py-2 text-sm font-medium text-foreground transition-all duration-[var(--transition-fast)] hover:bg-accent-muted hover:scale-[1.02] active:scale-[0.98]"
               >
                 Dashboard
-                <ArrowRightIcon className="h-3.5 w-3.5" />
+                <ArrowRightIcon className="h-3.5 w-3.5 transition-transform duration-[var(--transition-fast)] group-hover:translate-x-0.5" />
               </a>
             ) : (
               <button
                 onClick={() => login()}
-                className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
+                className="group inline-flex items-center gap-2 border border-accent rounded-[6px] px-4 py-2 text-sm font-medium text-foreground transition-all duration-[var(--transition-fast)] hover:bg-accent-muted hover:scale-[1.02] active:scale-[0.98]"
               >
                 Connect Wallet
-                <ArrowRightIcon className="h-3.5 w-3.5" />
+                <ArrowRightIcon className="h-3.5 w-3.5 transition-transform duration-[var(--transition-fast)] group-hover:translate-x-0.5" />
               </button>
             )}
           </div>
@@ -72,10 +72,10 @@ export default function LandingPage() {
                 <div className="flex items-center gap-4 pt-2">
                   <button
                     onClick={() => authenticated ? window.location.href = '/dashboard' : login()}
-                    className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
+                    className="group inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-all duration-[var(--transition-fast)] hover:bg-accent-muted hover:scale-[1.02] active:scale-[0.98]"
                   >
                     Get Started
-                    <ArrowRightIcon className="h-4 w-4" />
+                    <ArrowRightIcon className="h-4 w-4 transition-transform duration-[var(--transition-fast)] group-hover:translate-x-0.5" />
                   </button>
                   <a
                     href="#how-it-works"
@@ -106,7 +106,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <div className="border-t border-border" />
+        <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
 
         <section id="how-it-works" className="py-[80px]">
           <div className="mx-auto max-w-[1200px] px-6">
@@ -137,7 +137,7 @@ export default function LandingPage() {
               ].map(({ step, title, description, icon: Icon }) => (
                 <div
                   key={step}
-                  className="rounded-2xl border border-border bg-background p-8 space-y-4"
+                  className="rounded-2xl border border-border bg-background p-8 space-y-4 transition-all duration-[var(--transition)] hover:border-accent/20 hover:shadow-[0_0_24px_-8px_rgba(59,158,255,0.12)]"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex h-10 w-10 items-center justify-center rounded-[6px] border border-border">
@@ -153,7 +153,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <div className="border-t border-border" />
+        <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
 
         <section className="py-[80px]">
           <div className="mx-auto max-w-[1200px] px-6">
@@ -184,7 +184,7 @@ export default function LandingPage() {
               ].map(({ icon: Icon, title, description, tags }) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-border bg-background p-8 space-y-4"
+                  className="rounded-2xl border border-border bg-background p-8 space-y-4 transition-all duration-[var(--transition)] hover:border-accent/20 hover:shadow-[0_0_24px_-8px_rgba(59,158,255,0.12)]"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-[6px] border border-border">
                     <Icon className="h-5 w-5 text-foreground" />
@@ -202,7 +202,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <div className="border-t border-border" />
+        <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
 
         <section className="py-[80px]">
           <div className="mx-auto max-w-[1200px] px-6">
@@ -216,10 +216,10 @@ export default function LandingPage() {
                 </p>
                 <button
                   onClick={() => authenticated ? window.location.href = '/dashboard' : login()}
-                  className="inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent-muted"
+                  className="group inline-flex items-center gap-2 border border-accent rounded-[6px] px-5 py-2.5 text-sm font-medium text-foreground transition-all duration-[var(--transition-fast)] hover:bg-accent-muted hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {authenticated ? 'Go to Dashboard' : 'Connect Wallet & Start'}
-                  <ArrowRightIcon className="h-4 w-4" />
+                  <ArrowRightIcon className="h-4 w-4 transition-transform duration-[var(--transition-fast)] group-hover:translate-x-0.5" />
                 </button>
               </div>
             </div>

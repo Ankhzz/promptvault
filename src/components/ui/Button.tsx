@@ -40,6 +40,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:pointer-events-none disabled:opacity-40',
         'select-none whitespace-nowrap',
+        'hover:scale-[1.02] active:scale-[0.98]',
         variantStyles[variant],
         sizeStyles[size],
         loading && 'pointer-events-none opacity-60',
