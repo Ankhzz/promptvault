@@ -79,6 +79,10 @@
   color-scheme: light;
 }
 
+[data-theme="light"] .logo-theme-aware {
+  filter: brightness(0);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-elevated: var(--background-elevated);

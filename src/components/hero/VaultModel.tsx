@@ -46,7 +46,7 @@ export function VaultModel() {
     metalness: 0.4,
     roughness: 0.3,
     emissive: '#3b9eff',
-    emissiveIntensity: 0.08,
+    emissiveIntensity: 0.2,
   })
 
   return (

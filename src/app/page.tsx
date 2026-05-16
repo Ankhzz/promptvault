@@ -23,7 +23,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 h-[59px] border-b border-border bg-background/80 backdrop-blur-[25px]">
         <div className="mx-auto max-w-[1200px] px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Image src="/logo.svg" alt="PromptVault" width={150} height={59} priority />
+            <Image src="/logo.svg" alt="PromptVault" width={150} height={59} priority className="logo-theme-aware" />
           </div>
           <div className="flex items-center gap-4">
             {authenticated ? (
@@ -49,6 +49,11 @@ export default function LandingPage() {
 
       <main className="pt-[59px]">
         <section className="relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -right-32 top-1/2 -translate-y-1/2 h-[700px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(59,158,255,0.08)_0%,transparent_65%)]" />
+            <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle,rgba(59,158,255,0.04)_0%,transparent_70%)] blur-3xl" />
+            <div className="absolute bottom-0 left-1/3 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,rgba(146,129,247,0.03)_0%,transparent_70%)] blur-3xl" />
+          </div>
           <div className="mx-auto max-w-[1200px] px-6 py-[100px]">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-8">
@@ -229,7 +234,7 @@ export default function LandingPage() {
         <footer className="border-t border-border py-8">
           <div className="mx-auto max-w-[1200px] px-6 flex items-center justify-between text-xs text-subtle">
             <div className="flex items-center gap-2">
-              <Image src="/logo.svg" alt="PromptVault" width={150} height={59} />
+              <Image src="/logo.svg" alt="PromptVault" width={150} height={59} className="logo-theme-aware" />
             </div>
             <p>Built on Story Protocol · CDR Hackathon 2025</p>
           </div>
