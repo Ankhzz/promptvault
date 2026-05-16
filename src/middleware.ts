@@ -35,8 +35,8 @@ function getCsp(host: string): string {
 
   const base = [
     "default-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
-    "font-src 'self' https://api.fontshare.com https://cdn.fontshare.com",
+    "style-src 'self' 'unsafe-inline' https://api.fontshare.com https://fonts.googleapis.com",
+    "font-src 'self' https://api.fontshare.com https://cdn.fontshare.com https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "frame-src https://widget.privy.io https://auth.privy.io",
     "object-src 'none'",
@@ -74,7 +74,7 @@ function getCsp(host: string): string {
 
   return [
     ...base,
-    "script-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
     `connect-src ${connectSrc.join(' ')}`,
   ].join('; ')
 }
