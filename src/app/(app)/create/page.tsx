@@ -124,11 +124,11 @@ export default function CreateVaultPage() {
 
     try {
       if (vaultType === 'licensed') {
-        await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+        await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
       } else if (vaultType === 'timelocked') {
-        await runTimeLockedFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+        await runTimeLockedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
       } else {
-        await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta)
+        await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
       }
     } catch (err) {
       const parsed = parseTxError(err)
@@ -143,6 +143,7 @@ export default function CreateVaultPage() {
     txHashes: string[],
     _ipfsCid: string | undefined,
     _encryptedFileMeta: string | undefined,
+    vaultType: VaultType,
   ) => {
     setStep('register')
     addToast({ title: 'Registering IP Asset...', variant: 'default' })
@@ -271,6 +272,7 @@ export default function CreateVaultPage() {
       writeTxHash: uploadResult.txHashes.write,
       registerTxHash: ipResult.txHash!,
       mintTxHash: licResult.txHash!,
+      vaultType,
     })
   }, [name, description, selectedFile, addToast])
 
@@ -279,6 +281,7 @@ export default function CreateVaultPage() {
     txHashes: string[],
     _ipfsCid: string | undefined,
     _encryptedFileMeta: string | undefined,
+    vaultType: VaultType,
   ) => {
     setStep('upload')
     addToast({ title: 'Encrypting & uploading private vault...', variant: 'default' })
@@ -380,6 +383,7 @@ export default function CreateVaultPage() {
       encryptedDataKey,
       allocateTxHash: allocateTxHash as string,
       writeTxHash: writeResult.txHash,
+      vaultType,
     })
   }, [name, description, selectedFile, addToast])
 
@@ -388,6 +392,7 @@ export default function CreateVaultPage() {
     txHashes: string[],
     _ipfsCid: string | undefined,
     _encryptedFileMeta: string | undefined,
+    vaultType: VaultType,
   ) => {
     setStep('upload')
     addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
@@ -481,6 +486,7 @@ export default function CreateVaultPage() {
       allocateTxHash: uploadResult.txHashes.allocate,
       writeTxHash: uploadResult.txHashes.write,
       unlockTime: unlockDate,
+      vaultType,
     })
   }, [name, description, selectedFile, unlockTime, addToast])
 
@@ -498,6 +504,7 @@ export default function CreateVaultPage() {
     registerTxHash?: string
     mintTxHash?: string
     unlockTime?: Date
+    vaultType: VaultType
   }) => {
     setStep('persist')
     addToast({ title: 'Saving vault record...', variant: 'default' })
@@ -508,7 +515,7 @@ export default function CreateVaultPage() {
         ownerAddress: params.ownerAddress,
         name: name.trim(),
         description: description.trim() || undefined,
-        vaultType,
+        vaultType: params.vaultType,
         ipId: params.ipId,
         licenseTermsId: params.licenseTermsId,
         licenseTokenId: params.licenseTokenId,
@@ -535,7 +542,7 @@ export default function CreateVaultPage() {
     setStep('done')
     isRunningRef.current = false
     addToast({ title: 'Vault created!', description: `UUID: ${params.uuid}`, variant: 'accent' })
-  }, [name, description, vaultType, addToast])
+  }, [name, description, addToast])
 
   const stepItems = [
     ...(vaultType === 'licensed' ? [
