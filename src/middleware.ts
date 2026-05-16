@@ -53,6 +53,8 @@ function getCsp(host: string): string {
     "'self'",
     'https://aeneid.storyrpc.io',
     'https://auth.privy.io',
+    'wss://auth.privy.io',
+    'https://api.auth.privy.io',
     'https://api.privy.io',
     'https://explorer-api.walletconnect.com',
     'wss://relay.walletconnect.com',
