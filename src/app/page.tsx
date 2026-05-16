@@ -13,7 +13,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 h-[59px] border-b border-border bg-background/80 backdrop-blur-[25px]">
         <div className="mx-auto max-w-[1200px] px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Image src="/logo.svg" alt="PromptVault" width={90} height={35} priority />
+            <Image src="/logo.svg" alt="PromptVault" width={128} height={50} priority />
           </div>
           <div className="flex items-center gap-4">
             {authenticated ? (
@@ -214,7 +214,7 @@ export default function LandingPage() {
         <footer className="border-t border-border py-8">
           <div className="mx-auto max-w-[1200px] px-6 flex items-center justify-between text-xs text-subtle">
             <div className="flex items-center gap-2">
-              <Image src="/logo.svg" alt="PromptVault" width={60} height={23} />
+              <Image src="/logo.svg" alt="PromptVault" width={128} height={50} />
             </div>
             <p>Built on Story Protocol · CDR Hackathon 2025</p>
           </div>

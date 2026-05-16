@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button onClick={() => setMobileOpen(true)} className="text-muted hover:text-foreground p-1" aria-label="Open menu">
             <MenuIcon className="h-5 w-5" />
           </button>
-          <Image src="/logo.svg" alt="PromptVault" width={24} height={9} />
+          <Image src="/logo.svg" alt="PromptVault" width={128} height={50} />
           <div className="flex-1" />
           <button
             onClick={toggle}

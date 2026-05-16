@@ -27,7 +27,7 @@ function isActiveNav(href: string, pathname: string) {
 function LogoBrand() {
   return (
     <div className="flex items-center gap-2.5">
-      <Image src="/logo.svg" alt="PromptVault" width={28} height={11} className="shrink-0" />
+      <Image src="/logo.svg" alt="PromptVault" width={128} height={50} className="shrink-0" />
     </div>
   )
 }
