@@ -192,18 +192,20 @@ function UnlockVaultContent() {
           txHash: result.txHash ?? undefined,
         }).catch(() => {})
 
-        if (!isPrivate && vaultData?.ownerAddress && clients.address.toLowerCase() !== vaultData.ownerAddress.toLowerCase()) {
-          encryptDataKeyForWallet(
-            result.dataKey,
-            clients.address,
-            async ({ domain, types, primaryType, message }) => {
-              return clients.walletClient.signTypedData({ domain, types, primaryType, message })
-            },
-            async (message) => clients.walletClient.signMessage({ message }),
-          ).then(async (encrypted) => {
-            await setPurchaseEncryptedDataKey(vaultId, clients.address, JSON.stringify(encrypted))
-          }).catch(() => {})
-        }
+      if (!isPrivate && vaultData?.ownerAddress && clients.address.toLowerCase() !== vaultData.ownerAddress.toLowerCase()) {
+        encryptDataKeyForWallet(
+          result.dataKey,
+          clients.address,
+          async ({ domain, types, primaryType, message }) => {
+            return clients.walletClient.signTypedData({ domain, types, primaryType, message })
+          },
+          async (message) => clients.walletClient.signMessage({ message }),
+        ).then(async (encrypted) => {
+          await setPurchaseEncryptedDataKey(vaultId, clients.address, JSON.stringify(encrypted))
+        }).catch((err) => {
+          console.warn('[PromptVault] Buyer backup save failed:', err instanceof Error ? err.message : err)
+        })
+      }
     } catch (err) {
       const parsed = parseTxError(err)
       setState('idle')

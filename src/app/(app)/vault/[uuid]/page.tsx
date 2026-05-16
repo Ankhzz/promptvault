@@ -25,9 +25,11 @@ import {
   ClockIcon,
 } from '@/components/Icons'
 import { STORY_CHAIN } from '@/lib/constants'
-import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault } from '@/db/queries'
+import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault, getVaultEncryptedDataKey, getPurchaseEncryptedDataKey } from '@/db/queries'
 import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
+import { decryptDataKeyForWallet, type EncryptedDataKey, type SignTypedDataFn, type SignMessageFn } from '@/lib/crypto/datakey-encryption'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { createWalletClient, custom, type Address, toHex } from 'viem'
 import { useLicenseToken } from '@/hooks/useLicenseToken'
 import { cn } from '@/lib/cn'
 
@@ -139,19 +141,72 @@ export default function VaultDetailPage() {
       return
     }
 
-  const keyHex = address ? sessionStorage.getItem(sessionKey(uuid, address)) : null
-  if (!keyHex) {
-    if (needsPurchase) {
-      addToast({ title: 'Purchase required', description: 'Buy this vault first to access content', variant: 'warning' })
+    let keyHex = address ? sessionStorage.getItem(sessionKey(uuid, address)) : null
+
+    if (!keyHex && address) {
+      try {
+        isDecryptingRef.current = true
+        setDecryptState('decrypting')
+        addToast({ title: 'Recovering data key from backup...', variant: 'default' })
+
+        const wallet = wallets[0]
+        if (wallet) {
+          const provider = await wallet.getEthereumProvider()
+          const walletClient = createWalletClient({
+            transport: custom(provider),
+            account: wallet.address as Address,
+          })
+
+          const signTypedDataFn: SignTypedDataFn = async ({ domain, types, primaryType, message }) => {
+            return walletClient.signTypedData({ domain, types, primaryType, message })
+          }
+          const signMessageFn: SignMessageFn = async (message) => {
+            return walletClient.signMessage({ message })
+          }
+
+          const ownerCheck = vault.ownerAddress.toLowerCase() === address.toLowerCase()
+
+          if (ownerCheck) {
+            const ownerBackup = await getVaultEncryptedDataKey(uuid)
+            if (ownerBackup?.encryptedDataKey) {
+              const encrypted: EncryptedDataKey = JSON.parse(ownerBackup.encryptedDataKey)
+              const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
+              keyHex = toHex(dataKey)
+            }
+          } else {
+            const buyerBackup = await getPurchaseEncryptedDataKey(uuid, address)
+            if (buyerBackup?.encryptedDataKey) {
+              const encrypted: EncryptedDataKey = JSON.parse(buyerBackup.encryptedDataKey)
+              const dataKey = await decryptDataKeyForWallet(encrypted, signTypedDataFn, signMessageFn)
+              keyHex = toHex(dataKey)
+            }
+          }
+
+          if (keyHex) {
+            sessionStorage.setItem(sessionKey(uuid, address), keyHex)
+            setHasSessionKey(true)
+            addToast({ title: 'Data key recovered from backup!', variant: 'accent' })
+          }
+        }
+      } catch {
+        addToast({ title: 'Local recovery failed', description: 'Redirecting to unlock page', variant: 'warning' })
+      } finally {
+        isDecryptingRef.current = false
+      }
+    }
+
+    if (!keyHex) {
+      if (needsPurchase) {
+        addToast({ title: 'Purchase required', description: 'Buy this vault first to access content', variant: 'warning' })
+        return
+      }
+      addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
+      const params = new URLSearchParams({ vaultId: String(uuid) })
+      const tokenId = buyerLicenseTokenId || vault.licenseTokenId
+      if (tokenId) params.set('licenseTokenId', tokenId)
+      router.push(`/unlock?${params}`)
       return
     }
-        addToast({ title: 'Key not found', description: 'Unlock the vault first to access content', variant: 'warning' })
-        const params = new URLSearchParams({ vaultId: String(uuid) })
-        const tokenId = buyerLicenseTokenId || vault.licenseTokenId
-        if (tokenId) params.set('licenseTokenId', tokenId)
-        router.push(`/unlock?${params}`)
-    return
-  }
 
     isDecryptingRef.current = true
     try {
@@ -183,7 +238,7 @@ export default function VaultDetailPage() {
     } finally {
       isDecryptingRef.current = false
     }
-  }, [vault, uuid, addToast, router, needsPurchase, buyerLicenseTokenId, address])
+  }, [vault, uuid, addToast, router, needsPurchase, buyerLicenseTokenId, address, wallets])
 
   const handleDownload = useCallback(() => {
     if (!decryptedFile) return
@@ -417,6 +472,21 @@ export default function VaultDetailPage() {
             <ClockIcon className="h-3 w-3 mr-0.5" />
             Locked
           </Badge>
+        )}
+        {(!isPrivate || isOwner) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams({ vaultId: String(vault.uuid) })
+              if (!isPrivate && !isTimeLocked && vault.licenseTokenId) params.set('licenseTokenId', vault.licenseTokenId)
+              const url = `${window.location.origin}/unlock?${params}`
+              navigator.clipboard.writeText(url)
+              addToast({ title: 'Link copied!', description: 'Share this link to grant vault access', variant: 'accent' })
+            }}
+          >
+            Share
+          </Button>
         )}
         </div>
 
