@@ -9,7 +9,7 @@ async function createDb(): Promise<PostgresJsDatabase<typeof schema>> {
   const { default: postgres } = await import('postgres')
   const { drizzle } = await import('drizzle-orm/postgres-js')
 
-  const client = postgres(connectionString, { ssl: 'require' })
+  const client = postgres(connectionString, { ssl: 'require', prepare: false })
   return drizzle(client, { schema })
 }
 
