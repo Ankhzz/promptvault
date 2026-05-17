@@ -6,7 +6,7 @@ Built for the [CDR Hackathon](https://docs.story.foundation/developers/cdr-sdk/o
 
 ## How It Works
 
-1. **Create a Vault** — Upload your prompt. Choose your access model.
+1. **Create a Vault** — Upload your prompt. Choose your access model (licensed, private, or timelocked).
 2. **Encrypt** — A random 256-bit data key encrypts the content client-side. The data key is then threshold-encrypted to the CDR validator network.
 3. **Gate** — On-chain conditions (license token mint, EOA check, or timelock) control who can request decryption.
 4. **Access** — Authorized wallets submit a decryption request to the CDR network. Validators threshold-decrypt the data key, and the content is revealed.
@@ -32,7 +32,7 @@ No single entity holds the full key — security is distributed across the CDR v
 | Auth & Wallet | Privy + Wagmi + Viem |
 | UI | Tailwind CSS v4 + custom design tokens |
 | 3D | React Three Fiber, Drei, Postprocessing |
-| Database | SQLite via Drizzle ORM |
+| Database | PostgreSQL via Supabase (Drizzle ORM) |
 | Encrypted Storage | Lighthouse IPFS |
 | CDR SDK | `@piplabs/cdr-sdk` (threshold encryption) |
 | Smart Contracts | Story Protocol Core SDK (IP registration, licensing) |
@@ -44,17 +44,33 @@ No single entity holds the full key — security is distributed across the CDR v
 - npm
 - A wallet with IP tokens on Story Aeneid testnet ([faucet](https://aeneid.storyscan.xyz/faucet))
 - A Privy account ([dashboard](https://privy.io)) — get your App ID
+- A Supabase project ([dashboard](https://supabase.com)) — for the database
+- A Lighthouse API key ([dashboard](https://files.lighthouse.storage)) — for IPFS storage
 
 ## Environment Variables
 
-Create `.env.local`:
+Create `.env.local` in the project root:
 
 ```env
+# Privy Auth
 NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
-NEXT_PUBLIC_COMET_RPC_URL=https://your-cometbft-proxy.example.com
+
+# Supabase Database (PostgreSQL direct connection)
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+
+# Story Protocol (Aeneid Testnet)
+NEXT_PUBLIC_STORY_RPC_URL=https://aeneid.storyrpc.io
+NEXT_PUBLIC_STORY_CHAIN_ID=1315
+NEXT_PUBLIC_STORY_EXPLORER=https://aeneid.storyscan.xyz
+
+# Lighthouse IPFS Storage
+NEXT_PUBLIC_LIGHTHOUSE_API_KEY=your-lighthouse-api-key
+
+# CometBFT RPC (dev: HTTP fallback; production: MUST be HTTPS)
+# NEXT_PUBLIC_COMET_RPC_URL=
 ```
 
-`NEXT_PUBLIC_COMET_RPC_URL` is optional in development (defaults to the internal dev endpoint). **Must be HTTPS in production.**
+> **For production (Vercel), `DATABASE_URL` must use the **Supabase connection pooler** (port 6543) instead of direct connection (port 5432). See `_project/db-migration.md` for details.
 
 ## Getting Started
 
@@ -72,6 +88,20 @@ npm run build
 npm run start
 ```
 
+## Database Backup & Restore
+
+Some vault data (encrypted data keys, IPFS CIDs) is **only stored in the database** and cannot be recovered from the blockchain. These scripts export/restore that critical data.
+
+```bash
+# Backup irrecoverable fields to a JSON file
+npm run backup
+
+# Restore from a backup file (e.g. after a database reset)
+npm run restore backup-2026-05-17.json
+```
+
+Full instructions in `_project/db-migration.md`.
+
 ## Contract Addresses (Aeneid Testnet)
 
 | Contract | Address |
@@ -87,7 +117,7 @@ npm run start
 
 ## CDR SDK
 
-The CDR SDK is vendored at `lib/cdr-sdk/`. To rebuild:
+The CDR SDK is vendored at `lib/cdr-sdk/`. The app uses this path via the `@piplabs/cdr-sdk` TypeScript alias. To rebuild from the source monorepo:
 
 ```bash
 cd external/cdr-sdk
@@ -97,17 +127,21 @@ pnpm build
 
 Then copy the dist output back to `lib/cdr-sdk/`.
 
+> `external/` contains the full CDR SDK monorepo (source only). The app does not depend on it at runtime.
+
 ## Project Structure
 
 ```
 src/
-  app/           — Next.js App Router pages and layouts
-  components/    — UI components (Sidebar, WalletStatus, Cards, etc.)
-    hero/        — 3D vault scene (React Three Fiber)
-    ui/          — Primitive UI components (Button, Card, Badge, Input, Toast)
-  lib/           — Utilities, constants, hooks, CDR helpers
-contracts/       — Solidity smart contracts (Forge)
-drizzle/         — Database schema and migrations
+  app/              — Next.js App Router pages and layouts
+  components/       — UI components (Sidebar, WalletStatus, Cards, etc.)
+    hero/           — 3D vault scene (React Three Fiber)
+    ui/             — Primitive UI components (Button, Card, Badge, Input, Toast)
+  lib/              — Utilities, constants, hooks, CDR helpers
+contracts/           — Solidity smart contracts (Forge)
+drizzle/             — Database schema and migrations
+scripts/             — CLI tools (backup/restore vault keys)
+_project/            — Project documentation (migration guides, etc.)
 ```
 
 ---

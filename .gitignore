@@ -39,6 +39,12 @@ yarn-error.log*
 # vault backup files (sensitive — never commit)
 backup-*.json
 
+# opencode local config (personal — not part of the dapp)
+.opencode/
+
+# CDR SDK source monorepo (app uses lib/cdr-sdk/ build output)
+external/
+
 # opencode agent skills (local config)
 .agents/
 
