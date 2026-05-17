@@ -36,8 +36,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# project reference files (not part of the dapp)
-/_project
+# vault backup files (sensitive — never commit)
+backup-*.json
 
 # opencode agent skills (local config)
 .agents/

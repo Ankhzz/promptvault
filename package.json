@@ -6,7 +6,9 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backup": "tsx --env-file=.env.local scripts/backup-vault-keys.ts",
+    "restore": "tsx --env-file=.env.local scripts/restore-vault-keys.ts"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.5",
@@ -31,6 +33,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",
     "@types/react-dom": "^19.2.3",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.0"
   }
 }
