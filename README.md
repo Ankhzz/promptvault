@@ -117,17 +117,11 @@ Full instructions in `_project/db-migration.md`.
 
 ## CDR SDK
 
-The CDR SDK is vendored at `lib/cdr-sdk/`. The app uses this path via the `@piplabs/cdr-sdk` TypeScript alias. To rebuild from the source monorepo:
+The CDR SDK is vendored at `lib/cdr-sdk/`. The app uses this path via the `@piplabs/cdr-sdk` TypeScript alias.
 
-```bash
-cd external/cdr-sdk
-pnpm install
-pnpm build
-```
+Source: [github.com/piplabs/cdr-sdk](https://github.com/piplabs/cdr-sdk)
 
-Then copy the dist output back to `lib/cdr-sdk/`.
-
-> `external/` contains the full CDR SDK monorepo (source only). The app does not depend on it at runtime.
+To rebuild: clone the repo, run `pnpm install && pnpm build`, and copy the dist output to `lib/cdr-sdk/`.
 
 ## Project Structure
 
