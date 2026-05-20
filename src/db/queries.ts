@@ -299,11 +299,21 @@ export async function getLastFaucetClaim(walletAddress: string) {
   return rows[0] ?? null
 }
 
-export async function recordFaucetClaim(walletAddress: string) {
+export async function recordFaucetClaim(
+  walletAddress: string,
+  opts?: { musdc?: boolean; ip?: boolean }
+) {
   const db = await getDb()
-  await db.insert(faucetClaims).values({ walletAddress })
+  const updates: Record<string, unknown> = {}
+  if (opts?.musdc) updates.claimedAt = new Date()
+  if (opts?.ip) updates.claimedIp = true
+  if (Object.keys(updates).length === 0) {
+    await db.insert(faucetClaims).values({ walletAddress }).onConflictDoNothing()
+    return
+  }
+  await db.insert(faucetClaims).values({ walletAddress, ...updates })
     .onConflictDoUpdate({
       target: faucetClaims.walletAddress,
-      set: { claimedAt: new Date() },
+      set: updates,
     })
 }

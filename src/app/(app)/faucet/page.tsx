@@ -14,42 +14,46 @@ import { useToast } from '@/components/ui/Toast'
 const FAUCET_URL = 'https://faucet.story.foundation'
 const EXPLORER_URL = STORY_CHAIN.explorer
 
+type FaucetStatus = {
+  musdcBalance: string
+  lastMusdcClaim: string | null
+  hasClaimedIp: boolean
+  faucetIpBalance: string | null
+  musdcCooldownRemaining: number | null
+  ipAmount: string
+}
+
 export default function FaucetPage() {
-  const { authenticated } = usePrivy()
   const { wallets } = useWallets()
   const { addToast } = useToast()
   const address = wallets[0]?.address
 
-  const [musdcBalance, setMusdcBalance] = useState<string | null>(null)
-  const [lastClaim, setLastClaim] = useState<string | null>(null)
+  const [status, setStatus] = useState<FaucetStatus | null>(null)
   const [claiming, setClaiming] = useState(false)
-  const [claimTxHash, setClaimTxHash] = useState<string | null>(null)
+  const [lastResult, setLastResult] = useState<{
+    musdcTxHash?: string
+    ipTxHash?: string
+    musdcClaimed?: boolean
+    ipClaimed?: boolean
+  } | null>(null)
   const [cooldownMs, setCooldownMs] = useState<number | null>(null)
 
-  const fetchMusdcStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     if (!address) return
     try {
-      const res = await fetch(`/api/faucet/claim-musdc?wallet=${address}`)
+      const res = await fetch(`/api/faucet/claim-all?wallet=${address}`)
       if (!res.ok) return
-      const data = await res.json()
-      setMusdcBalance(data.balance ?? '0')
-      setLastClaim(data.lastClaim)
-
-      if (data.lastClaim) {
-        const elapsed = Date.now() - new Date(data.lastClaim).getTime()
-        const remaining = MUSDC_CONFIG.faucetCooldownMs - elapsed
-        setCooldownMs(remaining > 0 ? remaining : null)
-      } else {
-        setCooldownMs(null)
-      }
+      const data: FaucetStatus = await res.json()
+      setStatus(data)
+      setCooldownMs(data.musdcCooldownRemaining)
     } catch {}
   }, [address])
 
   useEffect(() => {
-    fetchMusdcStatus()
-    const interval = setInterval(fetchMusdcStatus, 30_000)
+    fetchStatus()
+    const interval = setInterval(fetchStatus, 30_000)
     return () => clearInterval(interval)
-  }, [fetchMusdcStatus])
+  }, [fetchStatus])
 
   useEffect(() => {
     if (cooldownMs === null || cooldownMs <= 0) return
@@ -63,14 +67,14 @@ export default function FaucetPage() {
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [cooldownMs])
+  }, [cooldownMs !== null && cooldownMs > 0])
 
   const handleClaim = async () => {
     if (!address || claiming) return
     setClaiming(true)
-    setClaimTxHash(null)
+    setLastResult(null)
     try {
-      const res = await fetch('/api/faucet/claim-musdc', {
+      const res = await fetch('/api/faucet/claim-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ walletAddress: address }),
@@ -79,18 +83,27 @@ export default function FaucetPage() {
 
       if (res.status === 429 && data.remainingMs) {
         setCooldownMs(data.remainingMs)
-        addToast({ title: 'Cooldown active', description: `Wait ${formatCooldown(data.remainingMs)} before claiming again`, variant: 'warning' })
+        addToast({ title: 'Cooldown active', description: `Wait ${formatCooldown(data.remainingMs)}`, variant: 'warning' })
         return
       }
 
-      if (!res.ok) {
+      if (!res.ok && !data.ok) {
         addToast({ title: 'Claim failed', description: data.error || 'Unknown error', variant: 'destructive' })
         return
       }
 
-      setClaimTxHash(data.txHash)
-      addToast({ title: 'MUSDC claimed!', description: `+${data.amount} MUSDC`, variant: 'accent' })
-      await fetchMusdcStatus()
+      const parts: string[] = []
+      if (data.musdcClaimed) parts.push('+100 MUSDC')
+      if (data.ipClaimed) parts.push('+0.01 IP')
+      if (parts.length > 0) {
+        addToast({ title: 'Claimed!', description: parts.join(' · '), variant: 'accent' })
+      }
+      if (data.ipError && data.musdcClaimed) {
+        addToast({ title: 'IP claim skipped', description: data.ipError, variant: 'warning' })
+      }
+
+      setLastResult(data)
+      await fetchStatus()
     } catch {
       addToast({ title: 'Claim failed', description: 'Network error', variant: 'destructive' })
     } finally {
@@ -98,7 +111,19 @@ export default function FaucetPage() {
     }
   }
 
-  const canClaim = cooldownMs === null || cooldownMs <= 0
+  const musdcReady = cooldownMs === null || cooldownMs <= 0
+  const ipReady = !status?.hasClaimedIp
+  const canClaim = (musdcReady || ipReady) && !!address
+  const faucetLowIp = status?.faucetIpBalance != null && Number(status.faucetIpBalance) < 0.1
+
+  const buttonLabel = (() => {
+    if (!address) return 'Connect Wallet'
+    if (claiming) return 'Claiming...'
+    if (!musdcReady && !ipReady) return `Cooldown ${formatCooldown(cooldownMs ?? 0)}`
+    if (ipReady && musdcReady) return 'Claim Starter Kit'
+    if (musdcReady) return 'Claim Daily MUSDC'
+    return 'Nothing to claim'
+  })()
 
   return (
     <AppShell>
@@ -107,7 +132,7 @@ export default function FaucetPage() {
           <div>
             <h1 className="font-display text-3xl tracking-tight">Testnet Faucet</h1>
             <p className="mt-2 text-muted text-base">
-              Get free tokens on the Aeneid testnet to create vaults, mint license tokens, and interact with CDR.
+              Get free tokens on the Aeneid testnet — MUSDC for marketplace purchases + IP for gas.
             </p>
           </div>
 
@@ -115,39 +140,60 @@ export default function FaucetPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <DropletIcon className="h-5 w-5 text-accent" />
-                <CardTitle>MUSDC Faucet</CardTitle>
+                <CardTitle>PromptVault Faucet</CardTitle>
               </div>
               <CardDescription>
-                Claim free Mock USDC tokens to purchase licensed vaults on the marketplace
+                {ipReady
+                  ? 'Claim your Starter Kit: 100 MUSDC + 0.01 IP (one-time)'
+                  : 'Claim daily MUSDC — 24h cooldown between claims'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                <div>
-                  <p className="text-xs text-subtle">Your MUSDC Balance</p>
-                  <p className="text-lg font-semibold text-foreground font-mono">
-                    {musdcBalance !== null ? `${formatMUSDC(musdcBalance)} MUSDC` : '—'}
-                  </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 col-span-1">
+                  <div>
+                    <p className="text-xs text-subtle">MUSDC Balance</p>
+                    <p className="text-lg font-semibold text-foreground font-mono">
+                      {status?.musdcBalance != null ? `${formatMUSDC(status.musdcBalance)}` : '—'}
+                    </p>
+                  </div>
+                  <Badge variant={status?.musdcBalance != null && Number(status.musdcBalance) > 0 ? 'accent' : 'outline'} dot>
+                    {status?.musdcBalance != null && Number(status.musdcBalance) > 0 ? 'Ready' : 'Empty'}
+                  </Badge>
                 </div>
-                <Badge variant={musdcBalance !== null && Number(musdcBalance) > 0 ? 'accent' : 'outline'} dot>
-                  {musdcBalance !== null && Number(musdcBalance) > 0 ? 'Ready' : 'Empty'}
-                </Badge>
+                <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 col-span-1">
+                  <div>
+                    <p className="text-xs text-subtle">IP Gas</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {status?.hasClaimedIp ? 'Claimed' : 'Available'}
+                    </p>
+                  </div>
+                  <Badge variant={status?.hasClaimedIp ? 'success' : 'accent'} dot>
+                    {status?.hasClaimedIp ? '0.01 IP' : 'One-time'}
+                  </Badge>
+                </div>
               </div>
 
-              {claimTxHash && (
-                <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-muted/30 px-4 py-3">
-                  <CheckIcon className="h-4 w-4 text-accent shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-subtle">Last claim tx</p>
-                    <a
-                      href={`${EXPLORER_URL}/tx/${claimTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-mono text-accent hover:underline truncate block"
-                    >
-                      {claimTxHash}
-                    </a>
-                  </div>
+              {lastResult && (lastResult.musdcTxHash || lastResult.ipTxHash) && (
+                <div className="space-y-2 rounded-lg border border-accent/30 bg-accent-muted/30 px-4 py-3">
+                  {lastResult.musdcClaimed && lastResult.musdcTxHash && (
+                    <div className="flex items-center gap-2">
+                      <CheckIcon className="h-4 w-4 text-accent shrink-0" />
+                      <p className="text-xs text-muted">MUSDC tx</p>
+                      <a href={`${EXPLORER_URL}/tx/${lastResult.musdcTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-accent hover:underline truncate">
+                        {lastResult.musdcTxHash}
+                      </a>
+                    </div>
+                  )}
+                  {lastResult.ipClaimed && lastResult.ipTxHash && (
+                    <div className="flex items-center gap-2">
+                      <CheckIcon className="h-4 w-4 text-accent shrink-0" />
+                      <p className="text-xs text-muted">IP tx</p>
+                      <a href={`${EXPLORER_URL}/tx/${lastResult.ipTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs font-mono text-accent hover:underline truncate">
+                        {lastResult.ipTxHash}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -155,68 +201,48 @@ export default function FaucetPage() {
                 <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
                   <ClockIcon className="h-4 w-4 text-warning shrink-0" />
                   <p className="text-sm text-muted">
-                    Next claim available in <span className="font-mono text-foreground">{formatCooldown(cooldownMs)}</span>
+                    Next MUSDC claim in <span className="font-mono text-foreground">{formatCooldown(cooldownMs)}</span>
                   </p>
+                </div>
+              )}
+
+              {faucetLowIp && (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+                  <ShieldIcon className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-warning font-medium">Fondo de gas agotado</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      Nuestro faucet IP está bajo de saldo. Usa el{' '}
+                      <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        faucet oficial de Story
+                      </a>
+                      {' '}mientras recargamos.
+                    </p>
+                  </div>
                 </div>
               )}
 
               <div className="rounded-[6px] border border-accent/30 bg-accent-muted px-4 py-3">
                 <p className="text-sm text-muted">
-                  <span className="font-medium text-accent">{MUSDC_CONFIG.faucetAmount} MUSDC</span> per claim · 24h cooldown · Aeneid Testnet
-                </p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                onClick={handleClaim}
-                loading={claiming}
-                disabled={!canClaim || claiming || !address}
-              >
-                {!address ? 'Connect Wallet' : !canClaim ? `Cooldown ${formatCooldown(cooldownMs ?? 0)}` : `Claim ${MUSDC_CONFIG.faucetAmount} MUSDC`}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <ShieldIcon className="h-5 w-5 text-accent" />
-                <CardTitle>Story Aeneid Faucet (IP Tokens)</CardTitle>
-              </div>
-              <CardDescription>
-                Request testnet IP tokens from the official Story Foundation faucet — needed for gas
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-[6px] border border-border bg-surface p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">How to get testnet IP</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted">
-                  <li>Click the button below to open the official Story faucet</li>
-                  <li>Connect your wallet or paste your address</li>
-                  <li>Request IP tokens — they arrive in seconds</li>
-                  <li>Return here to create vaults and interact with CDR</li>
-                </ol>
-              </div>
-
-              <div className="rounded-[6px] border border-accent/30 bg-accent-muted px-4 py-3">
-                <p className="text-sm text-muted">
-                  <span className="font-medium text-accent">Network:</span> Story Aeneid Testnet (Chain ID: {STORY_CHAIN.id})
+                  <span className="font-medium text-accent">100 MUSDC</span> / 24h ·{' '}
+                  <span className="font-medium text-accent">0.01 IP</span> one-time · Aeneid Testnet
                 </p>
               </div>
             </CardContent>
             <CardFooter className="flex gap-3">
-              <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button variant="primary" size="lg" className="w-full">
-                  Open Faucet
-                  <ExternalLinkIcon className="h-4 w-4 ml-2" />
-                </Button>
-              </a>
-              <a href={EXPLORER_URL} target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex-1"
+                onClick={handleClaim}
+                loading={claiming}
+                disabled={!canClaim || claiming}
+              >
+                {buttonLabel}
+              </Button>
+              <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="lg">
-                  Explorer
+                  Story Faucet
                   <ExternalLinkIcon className="h-4 w-4 ml-2" />
                 </Button>
               </a>
@@ -230,10 +256,10 @@ export default function FaucetPage() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { num: '1', title: 'Claim MUSDC', desc: 'Get free Mock USDC from the faucet to purchase vaults' },
-                  { num: '2', title: 'Get IP for Gas', desc: 'IP tokens pay for on-chain transactions (vault creation, license mints)' },
-                  { num: '3', title: 'Create Licensed Vaults', desc: 'Register IP assets, set a MUSDC price, encrypt content via CDR' },
-                  { num: '4', title: 'Buy & Unlock Vault Content', desc: 'Pay MUSDC via Marketplace, mint license token, decrypt via CDR network' },
+                  { num: '1', title: 'Claim Starter Kit', desc: 'Get 100 MUSDC (daily) + 0.01 IP for gas (one-time)' },
+                  { num: '2', title: 'Create Licensed Vaults', desc: 'Register IP assets, set a MUSDC price, encrypt content via CDR' },
+                  { num: '3', title: 'Buy & Unlock Content', desc: 'Pay MUSDC via Marketplace, mint license token, decrypt via CDR' },
+                  { num: '4', title: 'Need More IP?', desc: 'Use the official Story Foundation faucet for additional gas tokens' },
                 ].map(({ num, title, desc }) => (
                   <div key={num} className="flex items-start gap-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border border-border text-xs font-mono text-muted">{num}</span>

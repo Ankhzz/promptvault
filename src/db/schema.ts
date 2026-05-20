@@ -90,4 +90,5 @@ export const licenseTokens = pgTable('license_tokens', {
 export const faucetClaims = pgTable('faucet_claims', {
   walletAddress: text('wallet_address').primaryKey(),
   claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+  claimedIp: boolean('claimed_ip').notNull().default(false),
 })

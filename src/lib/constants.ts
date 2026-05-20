@@ -22,6 +22,14 @@ export const CONTRACTS = {
   MARKETPLACE: (process.env.NEXT_PUBLIC_MARKETPLACE_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
 } as const
 
+export const FAUCET_CONFIG = {
+  musdcDecimals: 18,
+  musdcFaucetAmount: 100,
+  musdcCooldownMs: 24 * 60 * 60 * 1000,
+  ipFaucetAmountWei: BigInt('10000000000000000'),
+  ipFaucetMinBalanceWei: BigInt('100000000000000000'),
+} as const
+
 export const MUSDC_CONFIG = {
   decimals: 18,
   faucetAmount: 100,
