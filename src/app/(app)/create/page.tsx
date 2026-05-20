@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -63,6 +63,11 @@ export default function CreateVaultPage() {
   const [vaultType, setVaultType] = useState<VaultType>('licensed')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [unlockTime, setUnlockTime] = useState('')
+  const [wasmReady, setWasmReady] = useState(false)
+
+  useEffect(() => {
+    initWasm().then(() => setWasmReady(true)).catch(() => {})
+  }, [])
 
   const getClients = useCallback(async () => {
     if (wallets.length === 0) return null
@@ -136,7 +141,7 @@ export default function CreateVaultPage() {
       isRunningRef.current = false
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
-  }, [name, vaultType, getClients, addToast, selectedFile])
+  }, [name, vaultType, unlockTime, getClients, addToast, selectedFile])
 
   const runLicensedFlow = useCallback(async (
     clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
@@ -177,12 +182,10 @@ export default function CreateVaultPage() {
     txHashes.push(licResult.txHash!)
     setResult(prev => ({ ...prev, licenseTokenId }))
 
-    setStep('upload')
-    addToast({ title: 'Encrypting & uploading vault...', variant: 'default' })
+  setStep('upload')
+  addToast({ title: 'Encrypting & uploading vault...', variant: 'default' })
 
-    await initWasm()
-
-    const cdrClient = new CDRClient({
+  const cdrClient = new CDRClient({
       network: CDR_CONFIG.network,
       publicClient: clients.publicClient,
       walletClient: clients.walletClient,
@@ -283,12 +286,10 @@ export default function CreateVaultPage() {
     _encryptedFileMeta: string | undefined,
     vaultType: VaultType,
   ) => {
-    setStep('upload')
-    addToast({ title: 'Encrypting & uploading private vault...', variant: 'default' })
+  setStep('upload')
+  addToast({ title: 'Encrypting & uploading private vault...', variant: 'default' })
 
-    await initWasm()
-
-    const cdrClient = new CDRClient({
+  const cdrClient = new CDRClient({
       network: CDR_CONFIG.network,
       publicClient: clients.publicClient,
       walletClient: clients.walletClient,
@@ -394,12 +395,10 @@ export default function CreateVaultPage() {
     _encryptedFileMeta: string | undefined,
     vaultType: VaultType,
   ) => {
-    setStep('upload')
-    addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
+  setStep('upload')
+  addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
 
-    await initWasm()
-
-    const cdrClient = new CDRClient({
+  const cdrClient = new CDRClient({
       network: CDR_CONFIG.network,
       publicClient: clients.publicClient,
       walletClient: clients.walletClient,
@@ -671,9 +670,9 @@ export default function CreateVaultPage() {
               min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
             />
-            <p className="mt-1 text-xs text-muted">
-              Vault content can only be decrypted after this time (enforced on-chain)
-            </p>
+        <p className="mt-1 text-xs text-muted">
+          Vault content can only be decrypted after this time (enforced on-chain). Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+        </p>
           </div>
         )}
       </CardContent>
@@ -786,16 +785,20 @@ export default function CreateVaultPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={runFullFlow}
-              loading={step !== 'idle' && step !== 'done'}
-              disabled={step !== 'idle' && step !== 'done'}
-              className="w-full"
-            >
-              {step === 'done' ? 'Create Another' : 'Create Vault'}
-            </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={step === 'done' ? () => {
+            setResult({})
+            setStep('idle')
+            isRunningRef.current = false
+          } : runFullFlow}
+          loading={step !== 'idle' && step !== 'done'}
+          disabled={(step !== 'idle' && step !== 'done') || !wasmReady}
+          className="w-full"
+        >
+          {step === 'done' ? 'Create Another' : !wasmReady ? 'Loading WASM...' : 'Create Vault'}
+        </Button>
           </CardFooter>
         </Card>
 

@@ -1,5 +1,9 @@
 # PromptVault
 
+> *"The future of AI is not open; it is secure. PromptVault redefines the ownership of creativity through encrypted vaults that guarantee only you—and those you choose—have access to your digital intellect."*
+
+![PromptVault Banner](public/banner.png)
+
 **Threshold-encrypted AI prompt vaults on Story Protocol — license-gated access with no single point of failure.**
 
 Built for the [CDR Hackathon](https://docs.story.foundation/developers/cdr-sdk/overview), PromptVault lets creators encrypt their most valuable prompts and gate access behind on-chain conditions: license tokens, wallet ownership, or timelocks.
@@ -12,6 +16,24 @@ Built for the [CDR Hackathon](https://docs.story.foundation/developers/cdr-sdk/o
 4. **Access** — Authorized wallets submit a decryption request to the CDR network. Validators threshold-decrypt the data key, and the content is revealed.
 
 No single entity holds the full key — security is distributed across the CDR validator set.
+
+## Why PromptVault?
+
+PromptVault abstracts the complexity of threshold encryption and IP assets, turning a prompt into a tradeable, secure digital commodity.
+
+## ⚠️ Data Recovery: Database Backup & Restore
+
+Some vault data (encrypted data keys, IPFS CIDs) is **only stored in the database** and cannot be recovered from the blockchain. PromptVault ships with CLI scripts to export and restore that critical data — a safety net that ensures no vault is permanently lost even if the database is reset.
+
+```bash
+# Backup irrecoverable fields to a JSON file
+npm run backup
+
+# Restore from a backup file (e.g. after a database reset)
+npm run restore backup-2026-05-17.json
+```
+
+Full instructions in `_project/db-migration.md`.
 
 ## Features
 
@@ -88,20 +110,6 @@ npm run build
 npm run start
 ```
 
-## Database Backup & Restore
-
-Some vault data (encrypted data keys, IPFS CIDs) is **only stored in the database** and cannot be recovered from the blockchain. These scripts export/restore that critical data.
-
-```bash
-# Backup irrecoverable fields to a JSON file
-npm run backup
-
-# Restore from a backup file (e.g. after a database reset)
-npm run restore backup-2026-05-17.json
-```
-
-Full instructions in `_project/db-migration.md`.
-
 ## Contract Addresses (Aeneid Testnet)
 
 | Contract | Address |
@@ -127,17 +135,23 @@ To rebuild: clone the repo, run `pnpm install && pnpm build`, and copy the dist 
 
 ```
 src/
-  app/              — Next.js App Router pages and layouts
-  components/       — UI components (Sidebar, WalletStatus, Cards, etc.)
-    hero/           — 3D vault scene (React Three Fiber)
-    ui/             — Primitive UI components (Button, Card, Badge, Input, Toast)
-  lib/              — Utilities, constants, hooks, CDR helpers
-contracts/           — Solidity smart contracts (Forge)
-drizzle/             — Database schema and migrations
-scripts/             — CLI tools (backup/restore vault keys)
-_project/            — Project documentation (migration guides, etc.)
+app/          — Next.js App Router pages and layouts
+components/   — UI components (Sidebar, WalletStatus, Cards, etc.)
+hero/         — 3D vault scene (React Three Fiber)
+ui/           — Primitive UI components (Button, Card, Badge, Input, Toast)
+lib/          — Utilities, constants, hooks, CDR helpers
+contracts/    — Solidity smart contracts (Forge)
+drizzle/      — Database schema and migrations
+scripts/      — CLI tools (backup/restore vault keys)
+_project/     — Project documentation (migration guides, etc.)
 ```
 
 ---
+
+**Version:** 1.0.0-alpha | Built for Story Protocol & CDR Hackathon
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 Built on [Story Protocol](https://story.foundation) · [CDR SDK](https://docs.story.foundation/developers/cdr-sdk/overview)
