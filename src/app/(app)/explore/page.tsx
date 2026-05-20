@@ -77,9 +77,9 @@ export default function ExplorePage() {
                       {vault.name}
                     </h3>
                     <span className="shrink-0 inline-flex items-center gap-1 rounded-[6px] border border-accent/30 px-2 py-0.5 text-xs text-accent">
-                      <PricetagIcon className="h-3 w-3" />
-                      {formatPrice(vault.price)}
-                    </span>
+                    <PricetagIcon className="h-3 w-3" />
+                    {vault.priceMusdc ? `${vault.priceMusdc} MUSDC` : formatPrice(vault.price)}
+                  </span>
                   </div>
 
                   {vault.description && (
