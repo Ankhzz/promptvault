@@ -24,7 +24,7 @@ import {
   LockIcon,
   ClockIcon,
 } from '@/components/Icons'
-import { STORY_CHAIN } from '@/lib/constants'
+import { STORY_CHAIN, CONTRACTS, MUSDC_CONFIG } from '@/lib/constants'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault, getVaultEncryptedDataKey, getPurchaseEncryptedDataKey } from '@/db/queries'
 import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
 import { decryptDataKeyForWallet, type EncryptedDataKey, type SignTypedDataFn, type SignMessageFn } from '@/lib/crypto/datakey-encryption'
@@ -32,6 +32,8 @@ import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { createWalletClient, custom, type Address, toHex } from 'viem'
 import { useLicenseToken } from '@/hooks/useLicenseToken'
 import { cn } from '@/lib/cn'
+import { MUSDC_ABI, MARKETPLACE_ABI } from '@/lib/abis/musdc'
+import { createPublicClient, http } from 'viem'
 
 type VaultData = Awaited<ReturnType<typeof getVaultByUuid>>
 type LicenseTokenData = Awaited<ReturnType<typeof getVaultLicenseTokens>>
@@ -51,7 +53,7 @@ const statusConfig: Record<string, { badge: 'accent' | 'default' | 'warning' | '
 }
 
 type DecryptState = 'idle' | 'decrypting' | 'done' | 'error'
-type PurchaseStep = 'idle' | 'minting' | 'finalizing' | 'redirecting' | 'done' | 'mint_failed' | 'finalize_failed'
+type PurchaseStep = 'idle' | 'approving' | 'purchasing' | 'minting' | 'finalizing' | 'redirecting' | 'done' | 'approve_failed' | 'purchase_failed' | 'mint_failed' | 'finalize_failed'
 
 export default function VaultDetailPage() {
   const params = useParams()
@@ -93,7 +95,7 @@ export default function VaultDetailPage() {
 
   const needsPurchase = !isPrivate && !isTimeLocked && !!vault?.isForSale && !isOwner && !hasPurchased
 
-  const purchaseBusy = purchaseStep === 'minting' || purchaseStep === 'finalizing' || purchaseStep === 'redirecting'
+  const purchaseBusy = purchaseStep === 'approving' || purchaseStep === 'purchasing' || purchaseStep === 'minting' || purchaseStep === 'finalizing' || purchaseStep === 'redirecting'
 
   const [hasSessionKey, setHasSessionKey] = useState(false)
 
@@ -267,13 +269,72 @@ export default function VaultDetailPage() {
       return
     }
 
+    const wallet = wallets[0]
+    if (!wallet) return
+
+    const priceMusdc = vault.priceMusdc
+    const hasMusdcPrice = !!priceMusdc && Number(priceMusdc) > 0
+
     try {
+      if (hasMusdcPrice) {
+        const provider = await wallet.getEthereumProvider()
+        const walletClient = createWalletClient({
+          transport: custom(provider),
+          account: wallet.address as Address,
+        })
+        const publicClient = createPublicClient({
+          transport: http(STORY_CHAIN.rpcUrl),
+        })
+
+        const priceWei = BigInt(Math.floor(Number(priceMusdc) * 10 ** MUSDC_CONFIG.decimals))
+
+        setPurchaseStep('approving')
+        addToast({ title: 'Approving MUSDC...', description: 'Confirm the approval in your wallet', variant: 'default' })
+
+        const currentAllowance = await publicClient.readContract({
+          address: CONTRACTS.MUSDC_TOKEN,
+          abi: MUSDC_ABI,
+          functionName: 'allowance',
+          args: [wallet.address as Address, CONTRACTS.MARKETPLACE],
+        })
+
+        if (currentAllowance < priceWei) {
+          const maxUint256 = BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935')
+          const approveTxHash = await walletClient.writeContract({
+            address: CONTRACTS.MUSDC_TOKEN,
+            abi: MUSDC_ABI,
+            functionName: 'approve',
+            args: [CONTRACTS.MARKETPLACE, maxUint256],
+            account: wallet.address as Address,
+            chain: { id: STORY_CHAIN.id, name: STORY_CHAIN.name, nativeCurrency: { name: 'IP', symbol: 'IP', decimals: 18 }, rpcUrls: { default: { http: [STORY_CHAIN.rpcUrl] } } },
+          })
+          await publicClient.waitForTransactionReceipt({ hash: approveTxHash })
+          addToast({ title: 'MUSDC approved!', variant: 'accent' })
+        } else {
+          addToast({ title: 'MUSDC already approved', variant: 'default' })
+        }
+
+        setPurchaseStep('purchasing')
+        addToast({ title: 'Purchasing via Marketplace...', description: 'Confirm the purchase in your wallet', variant: 'default' })
+
+        const purchaseTxHash = await walletClient.writeContract({
+          address: CONTRACTS.MARKETPLACE,
+          abi: MARKETPLACE_ABI,
+          functionName: 'purchase',
+          args: [BigInt(vault.uuid), priceWei, vault.ownerAddress as Address],
+          account: wallet.address as Address,
+          chain: { id: STORY_CHAIN.id, name: STORY_CHAIN.name, nativeCurrency: { name: 'IP', symbol: 'IP', decimals: 18 }, rpcUrls: { default: { http: [STORY_CHAIN.rpcUrl] } } },
+        })
+        await publicClient.waitForTransactionReceipt({ hash: purchaseTxHash })
+        addToast({ title: 'MUSDC payment successful!', variant: 'accent' })
+      }
+
       setPurchaseStep('minting')
       addToast({ title: 'Minting license token...', description: 'Confirm the transaction in your wallet', variant: 'default' })
 
       const mintResult = await mintLicenseToken({
         licensorIpId: vault.ipId as `0x${string}`,
-          licenseTermsId: vault.licenseTermsId!,
+        licenseTermsId: vault.licenseTermsId!,
         amount: 1,
         receiver: address as `0x${string}`,
       })
@@ -302,15 +363,21 @@ export default function VaultDetailPage() {
       params.set('licenseTokenId', tokenIdStr)
       router.push(`/unlock?${params}`)
     } catch (err) {
-      if (buyerLicenseTokenId && mintTxHash) {
+      if (purchaseStep === 'minting' && buyerLicenseTokenId && mintTxHash) {
         setPurchaseStep('finalize_failed')
         addToast({ title: 'DB save failed', description: 'License token minted but purchase record failed. Click Retry.', variant: 'warning' })
+      } else if (purchaseStep === 'approving') {
+        setPurchaseStep('approve_failed')
+        addToast({ title: 'Approval failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+      } else if (purchaseStep === 'purchasing') {
+        setPurchaseStep('purchase_failed')
+        addToast({ title: 'Marketplace purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
       } else {
         setPurchaseStep('mint_failed')
         addToast({ title: 'Purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
       }
     }
-  }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router])
+  }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router, wallets, purchaseStep])
 
   const handleRetryFinalize = useCallback(async () => {
     if (!vault || !address || !buyerLicenseTokenId || !mintTxHash) return
@@ -425,12 +492,12 @@ export default function VaultDetailPage() {
             {isLocked ? 'Locked' : 'Unlocked'}
           </Badge>
         )}
-        {!isPrivate && !isTimeLocked && vault.isForSale && !isOwner && (
-            <Badge variant="accent" dot>
-              <PricetagIcon className="h-3 w-3 mr-0.5" />
-              For Sale · {formatPrice(vault.price)}
-            </Badge>
-          )}
+                {!isPrivate && !isTimeLocked && vault.isForSale && !isOwner && (
+                  <Badge variant="accent" dot>
+                    <PricetagIcon className="h-3 w-3 mr-0.5" />
+                    For Sale · {vault.priceMusdc ? `${vault.priceMusdc} MUSDC` : formatPrice(vault.price)}
+                  </Badge>
+                )}
             </div>
             {vault.description && (
               <p className="mt-2 text-muted text-base">{vault.description}</p>
@@ -639,20 +706,46 @@ export default function VaultDetailPage() {
   <div className="flex gap-3">
     {needsPurchase ? (
       (() => {
-        if (purchaseStep === 'mint_failed') {
-          return (
-            <div className="flex-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
-              <p className="text-sm text-destructive">License token mint failed</p>
-              <Button variant="primary" size="sm" onClick={() => { setPurchaseStep('idle'); setConfirmingPurchase(true) }}>
-                Retry Purchase
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setPurchaseStep('idle')}>
-                Cancel
-              </Button>
-            </div>
-          )
-        }
-        if (purchaseStep === 'finalize_failed') {
+                        if (purchaseStep === 'mint_failed') {
+                          return (
+                            <div className="flex-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
+                              <p className="text-sm text-destructive">License token mint failed</p>
+                              <Button variant="primary" size="sm" onClick={() => { setPurchaseStep('idle'); setConfirmingPurchase(true) }}>
+                                Retry Purchase
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setPurchaseStep('idle')}>
+                                Cancel
+                              </Button>
+                            </div>
+                          )
+                        }
+                        if (purchaseStep === 'approve_failed') {
+                          return (
+                            <div className="flex-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
+                              <p className="text-sm text-destructive">MUSDC approval failed</p>
+                              <Button variant="primary" size="sm" onClick={() => { setPurchaseStep('idle'); setConfirmingPurchase(true) }}>
+                                Retry Purchase
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setPurchaseStep('idle')}>
+                                Cancel
+                              </Button>
+                            </div>
+                          )
+                        }
+                        if (purchaseStep === 'purchase_failed') {
+                          return (
+                            <div className="flex-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-2">
+                              <p className="text-sm text-destructive">Marketplace purchase failed</p>
+                              <Button variant="primary" size="sm" onClick={() => { setPurchaseStep('idle'); setConfirmingPurchase(true) }}>
+                                Retry Purchase
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setPurchaseStep('idle')}>
+                                Cancel
+                              </Button>
+                            </div>
+                          )
+                        }
+                        if (purchaseStep === 'finalize_failed') {
           return (
             <div className="flex-1 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 space-y-2">
               <p className="text-sm text-warning">License token minted but purchase record failed</p>
@@ -662,12 +755,17 @@ export default function VaultDetailPage() {
             </div>
           )
         }
-        if (purchaseBusy) {
-          const steps = [
-            { key: 'minting', label: 'Minting license token...' },
-            { key: 'finalizing', label: 'Finalizing access...' },
-            { key: 'redirecting', label: 'Redirecting to unlock...' },
-          ] as const
+                        if (purchaseBusy) {
+                          const vaultHasMusdcPrice = !!vault.priceMusdc && Number(vault.priceMusdc) > 0
+                          const steps = [
+                            ...(vaultHasMusdcPrice ? [
+                              { key: 'approving', label: 'Approving MUSDC...' },
+                              { key: 'purchasing', label: 'Purchasing via Marketplace...' },
+                            ] : []),
+                            { key: 'minting', label: 'Minting license token...' },
+                            { key: 'finalizing', label: 'Finalizing access...' },
+                            { key: 'redirecting', label: 'Redirecting to unlock...' },
+                          ] as const
           return (
             <div className="flex-1 space-y-2 rounded-lg border border-border bg-surface px-4 py-3">
               {steps.map((s) => {
@@ -691,13 +789,17 @@ export default function VaultDetailPage() {
             </div>
           )
         }
-        if (confirmingPurchase) {
-          return (
-            <div className="flex-1 space-y-3 rounded-lg border border-border bg-surface px-4 py-3">
-              <p className="text-sm text-muted">
-                Confirm purchase: <span className="font-medium text-foreground">{formatPrice(vault.price)}</span>
-                <span className="block text-xs text-subtle mt-1">You will sign a transaction to mint a license token (gas required).</span>
-              </p>
+                        if (confirmingPurchase) {
+                          const priceLabel = vault.priceMusdc ? `${vault.priceMusdc} MUSDC` : formatPrice(vault.price)
+                          const txDescription = vault.priceMusdc
+                            ? 'You will sign 2-3 transactions: approve MUSDC, purchase via Marketplace, and mint a license token (gas required).'
+                            : 'You will sign a transaction to mint a license token (gas required).'
+                          return (
+                            <div className="flex-1 space-y-3 rounded-lg border border-border bg-surface px-4 py-3">
+                              <p className="text-sm text-muted">
+                                Confirm purchase: <span className="font-medium text-foreground">{priceLabel}</span>
+                                <span className="block text-xs text-subtle mt-1">{txDescription}</span>
+                              </p>
               <div className="flex gap-2">
                 <Button variant="primary" size="sm" onClick={handlePurchase}>
                   Confirm Purchase
@@ -709,11 +811,11 @@ export default function VaultDetailPage() {
             </div>
           )
         }
-        return (
-          <Button variant="primary" size="md" onClick={() => setConfirmingPurchase(true)} className="flex-1">
-            <PricetagIcon className="h-4 w-4 mr-2" />
-            Buy & Unlock · {formatPrice(vault.price)}
-          </Button>
+                        return (
+                          <Button variant="primary" size="md" onClick={() => setConfirmingPurchase(true)} className="flex-1">
+                            <PricetagIcon className="h-4 w-4 mr-2" />
+                            Buy & Unlock · {vault.priceMusdc ? `${vault.priceMusdc} MUSDC` : formatPrice(vault.price)}
+                          </Button>
         )
       })()
     ) : hasSessionKey ? (
