@@ -1,6 +1,6 @@
 'use server'
 
-import { users, vaults, activity, licenseTokens, purchases } from '@/db/schema'
+import { users, vaults, activity, licenseTokens, purchases, faucetClaims } from '@/db/schema'
 import { eq, and, desc, sql, ne } from 'drizzle-orm'
 import { getDb } from '@/db'
 
@@ -276,6 +276,7 @@ export async function getVaultsForSale(limit = 50, offset = 0) {
     name: vaults.name,
     description: vaults.description,
     price: vaults.price,
+    priceMusdc: vaults.priceMusdc,
     ownerAddress: vaults.ownerAddress,
     ipId: vaults.ipId,
     status: vaults.status,
@@ -287,4 +288,21 @@ export async function getVaultsForSale(limit = 50, offset = 0) {
   .orderBy(desc(vaults.updatedAt))
   .limit(limit)
   .offset(offset)
+}
+
+export async function getLastFaucetClaim(walletAddress: string) {
+  const db = await getDb()
+  const rows = await db.select().from(faucetClaims)
+    .where(eq(faucetClaims.walletAddress, walletAddress))
+    .limit(1)
+  return rows[0] ?? null
+}
+
+export async function recordFaucetClaim(walletAddress: string) {
+  const db = await getDb()
+  await db.insert(faucetClaims).values({ walletAddress })
+    .onConflictDoUpdate({
+      target: faucetClaims.walletAddress,
+      set: { claimedAt: new Date() },
+    })
 }

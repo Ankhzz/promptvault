@@ -15,6 +15,13 @@
       "when": 1778807186903,
       "tag": "0001_blue_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779264239500,
+      "tag": "0002_easy_stone_men",
+      "breakpoints": true
     }
   ]
 }

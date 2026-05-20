@@ -31,6 +31,7 @@ export const vaults = pgTable('vaults', {
   mintTxHash: text('mint_tx_hash'),
   status: vaultStatusEnum('status').notNull().default('creating'),
   price: integer('price'),
+  priceMusdc: text('price_musdc'),
   isForSale: boolean('is_for_sale').notNull().default(false),
   unlockTime: timestamp('unlock_time', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -85,3 +86,8 @@ export const licenseTokens = pgTable('license_tokens', {
   index('idx_license_tokens_owner').on(table.ownerAddress),
   index('idx_license_tokens_vault').on(table.vaultUuid),
 ])
+
+export const faucetClaims = pgTable('faucet_claims', {
+  walletAddress: text('wallet_address').primaryKey(),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+})
