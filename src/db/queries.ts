@@ -34,6 +34,7 @@ export async function createVaultRecord(data: {
   registerTxHash?: string
   mintTxHash?: string
   unlockTime?: Date
+  priceMusdc?: string
 }) {
   const db = await getDb()
   await getOrCreateUser(data.ownerAddress)

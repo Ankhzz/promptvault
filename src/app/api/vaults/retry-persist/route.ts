@@ -42,24 +42,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-  const result = await createVaultRecord({
-    uuid: body.uuid,
-    ownerAddress: body.ownerAddress,
-    name: body.name,
-    description: body.description,
-    vaultType: body.vaultType,
-    ipId: body.ipId,
-    licenseTermsId: body.licenseTermsId,
-    licenseTokenId: body.licenseTokenId,
-    ipfsCid: body.ipfsCid,
-    encryptedFileMeta: body.encryptedFileMeta,
-    encryptedDataKey: body.encryptedDataKey,
-    dataKeyEncryptionMeta: body.dataKeyEncryptionMeta,
-    allocateTxHash: body.allocateTxHash,
-    writeTxHash: body.writeTxHash,
-    registerTxHash: body.registerTxHash,
-    mintTxHash: body.mintTxHash,
-  })
+    const result = await createVaultRecord({
+      uuid: body.uuid,
+      ownerAddress: body.ownerAddress,
+      name: body.name,
+      description: body.description,
+      vaultType: body.vaultType,
+      ipId: body.ipId,
+      licenseTermsId: body.licenseTermsId,
+      licenseTokenId: body.licenseTokenId,
+      ipfsCid: body.ipfsCid,
+      encryptedFileMeta: body.encryptedFileMeta,
+      encryptedDataKey: body.encryptedDataKey,
+      dataKeyEncryptionMeta: body.dataKeyEncryptionMeta,
+      allocateTxHash: body.allocateTxHash,
+      writeTxHash: body.writeTxHash,
+      registerTxHash: body.registerTxHash,
+      mintTxHash: body.mintTxHash,
+      priceMusdc: body.priceMusdc,
+    })
 
     return NextResponse.json({ ok: true, status: 'created', vault: result })
   } catch (err) {

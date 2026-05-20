@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
-import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon, ClockIcon } from '@/components/Icons'
+import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon, ClockIcon, PricetagIcon } from '@/components/Icons'
 import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
@@ -63,6 +63,7 @@ export default function CreateVaultPage() {
   const [vaultType, setVaultType] = useState<VaultType>('licensed')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [unlockTime, setUnlockTime] = useState('')
+  const [priceMusdc, setPriceMusdc] = useState('')
   const [wasmReady, setWasmReady] = useState(false)
 
   useEffect(() => {
@@ -141,7 +142,7 @@ export default function CreateVaultPage() {
       isRunningRef.current = false
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
     }
-  }, [name, vaultType, unlockTime, getClients, addToast, selectedFile])
+  }, [name, vaultType, unlockTime, priceMusdc, getClients, addToast, selectedFile])
 
   const runLicensedFlow = useCallback(async (
     clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
@@ -276,6 +277,7 @@ export default function CreateVaultPage() {
       registerTxHash: ipResult.txHash!,
       mintTxHash: licResult.txHash!,
       vaultType,
+      priceMusdc: priceMusdc || undefined,
     })
   }, [name, description, selectedFile, addToast])
 
@@ -504,6 +506,7 @@ export default function CreateVaultPage() {
     mintTxHash?: string
     unlockTime?: Date
     vaultType: VaultType
+    priceMusdc?: string
   }) => {
     setStep('persist')
     addToast({ title: 'Saving vault record...', variant: 'default' })
@@ -527,6 +530,7 @@ export default function CreateVaultPage() {
         registerTxHash: params.registerTxHash,
         mintTxHash: params.mintTxHash,
         unlockTime: params.unlockTime,
+        priceMusdc: params.priceMusdc,
       })
       setResult(prev => ({ ...prev, dbPersisted: true }))
     } catch (dbErr) {
@@ -659,22 +663,37 @@ export default function CreateVaultPage() {
             <span className="text-xs text-muted">Owner-only EOA access, no on-chain licensing</span>
           </button>
         </div>
-        {vaultType === 'timelocked' && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-foreground mb-1.5">Unlock Time</label>
-            <input
-              type="datetime-local"
-              value={unlockTime}
-              onChange={(e) => setUnlockTime(e.target.value)}
-              disabled={step !== 'idle'}
-              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
-            />
-        <p className="mt-1 text-xs text-muted">
-          Vault content can only be decrypted after this time (enforced on-chain). Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
-        </p>
-          </div>
-        )}
+      {vaultType === 'timelocked' && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-foreground mb-1.5">Unlock Time</label>
+          <input
+            type="datetime-local"
+            value={unlockTime}
+            onChange={(e) => setUnlockTime(e.target.value)}
+            disabled={step !== 'idle'}
+            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Vault content can only be decrypted after this time (enforced on-chain). Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+          </p>
+        </div>
+      )}
+      {vaultType === 'licensed' && (
+        <div className="mt-4">
+          <Input
+            label="Price (MUSDC)"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="e.g. 10"
+            value={priceMusdc}
+            onChange={(e) => setPriceMusdc(e.target.value)}
+            disabled={step !== 'idle'}
+            hint="Set a price in Mock USDC for buyers to purchase this vault via the marketplace. Leave empty to list as free."
+          />
+        </div>
+      )}
       </CardContent>
         </Card>
 
@@ -789,9 +808,10 @@ export default function CreateVaultPage() {
           variant="primary"
           size="lg"
           onClick={step === 'done' ? () => {
-            setResult({})
-            setStep('idle')
-            isRunningRef.current = false
+          setResult({})
+          setStep('idle')
+          setPriceMusdc('')
+          isRunningRef.current = false
           } : runFullFlow}
           loading={step !== 'idle' && step !== 'done'}
           disabled={(step !== 'idle' && step !== 'done') || !wasmReady}
@@ -812,13 +832,14 @@ export default function CreateVaultPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <DataRow label="Vault UUID" value={String(result.vaultUuid)} mono />
-              {vaultType === 'licensed' && (
-                <>
-                  <DataRow label="IP Asset" value={result.ipId || ''} mono />
-                  <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
-                  <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
-                </>
-              )}
+                {vaultType === 'licensed' && (
+                  <>
+                    <DataRow label="IP Asset" value={result.ipId || ''} mono />
+                    <DataRow label="License Token" value={result.licenseTokenId?.toString() || ''} mono />
+                    <DataRow label="License Terms" value={result.licenseTermsId?.toString() || ''} mono />
+                    {priceMusdc && <DataRow label="Price" value={`${priceMusdc} MUSDC`} mono={false} />}
+                  </>
+                )}
         {vaultType === 'private' && (
           <DataRow label="Vault Type" value="Private (Owner-Only EOA)" mono={false} />
         )}
@@ -866,8 +887,9 @@ export default function CreateVaultPage() {
                 dataKeyEncryptionMeta: result.dataKeyEncryptionMetaJson,
                 allocateTxHash: result.allocateTxHash,
                 writeTxHash: result.writeTxHash,
-                registerTxHash: result.registerTxHash,
-                mintTxHash: result.mintTxHash,
+          registerTxHash: result.registerTxHash,
+            mintTxHash: result.mintTxHash,
+            priceMusdc: priceMusdc || undefined,
               }),
             })
             const data = await res.json()
