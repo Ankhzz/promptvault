@@ -164,16 +164,22 @@ export async function decryptFileFromBase64(
   })
 }
 
-export async function uploadToLighthouse(
-  blob: Blob,
-  apiKey: string,
-): Promise<string> {
-  const lighthouse = await import('@lighthouse-web3/sdk')
-  const result = await lighthouse.uploadBuffer(blob, apiKey)
-  if (!result?.data?.Hash) {
-    throw new Error('Lighthouse upload failed: no CID returned')
+export async function uploadToLighthouse(blob: Blob): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', blob, 'encrypted.bin')
+
+  const res = await fetch('/api/lighthouse/upload', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+    throw new Error(err.error || `Upload failed with status ${res.status}`)
   }
-  return result.data.Hash as string
+
+  const data = await res.json()
+  return data.cid as string
 }
 
 export async function fetchFromLighthouse(cid: string): Promise<Blob> {

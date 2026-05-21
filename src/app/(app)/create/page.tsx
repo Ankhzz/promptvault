@@ -14,8 +14,8 @@ import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/consta
 import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData, encodeTimeLockReadCondition } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
-import { custom as viemCustom, Account } from 'viem'
-import { StoryClient, StoryConfig, PILFlavor } from '@story-protocol/core-sdk'
+import { custom as viemCustom } from 'viem'
+import { StoryClient, PILFlavor } from '@story-protocol/core-sdk'
 import { createVaultRecord } from '@/db/queries'
 import { parseTxError } from '@/lib/parseTxError'
 import {
@@ -118,11 +118,7 @@ export default function CreateVaultPage() {
 
     isRunningRef.current = true
 
-    if (selectedFile && !process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY) {
-      isRunningRef.current = false
-      addToast({ title: 'Lighthouse API key missing', description: 'Set NEXT_PUBLIC_LIGHTHOUSE_API_KEY before creating a vault with a file', variant: 'destructive' })
-      return
-    }
+    // Lighthouse API key is checked server-side on the upload API route
 
     const txHashes: string[] = []
     let ipfsCid: string | undefined
@@ -224,7 +220,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
+      ipfsCid = await uploadToLighthouse(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 
@@ -341,7 +337,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
+      ipfsCid = await uploadToLighthouse(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 
@@ -441,7 +437,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob, process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY!)
+      ipfsCid = await uploadToLighthouse(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 
