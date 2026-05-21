@@ -14,7 +14,7 @@ import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/consta
 import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData, encodeTimeLockReadCondition } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
-import { custom as viemCustom } from 'viem'
+import { custom as viemCustom, type Account } from 'viem'
 import { StoryClient, PILFlavor } from '@story-protocol/core-sdk'
 import { createVaultRecord } from '@/db/queries'
 import { parseTxError } from '@/lib/parseTxError'
