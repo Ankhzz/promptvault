@@ -275,7 +275,7 @@ export default function CreateVaultPage() {
       vaultType,
       priceMusdc: priceMusdc || undefined,
     })
-  }, [name, description, selectedFile, addToast])
+  }, [name, description, selectedFile, priceMusdc, addToast])
 
   const runPrivateFlow = useCallback(async (
     clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
