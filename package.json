@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-"dev": "next dev",
-"build": "next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "backup": "tsx --env-file=.env.local scripts/backup-vault-keys.ts",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.5",
+    "@privy-io/node": "^0.18.0",
     "@privy-io/react-auth": "^1.78.0",
     "@privy-io/wagmi": "^0.2.0",
     "@react-three/drei": "^10.7.7",

@@ -4,6 +4,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { unstable_cache } from 'next/cache'
 import { STORY_CHAIN, CONTRACTS, FAUCET_CONFIG, MUSDC_CONFIG } from '@/lib/constants'
 import { getLastFaucetClaim, recordFaucetClaim } from '@/db/queries'
+import { verifyPrivyToken } from '@/lib/verify-privy-token'
 
 const aeneid = defineChain({
   id: STORY_CHAIN.id,
@@ -33,17 +34,6 @@ const MUSDC_ABI = [
   },
 ] as const
 
-function extractWalletFromCookie(request: NextRequest): string | null {
-  try {
-    const token = request.cookies.get('privy-token')?.value
-    if (!token) return null
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.wallet?.address ?? null
-  } catch {
-    return null
-  }
-}
-
 const getCachedFaucetIpBalance = unstable_cache(
   async (faucetAddress: Address) => {
     const publicClient = createPublicClient({ transport: http(STORY_CHAIN.rpcUrl) })
@@ -62,9 +52,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
     }
 
-    const sessionWallet = extractWalletFromCookie(request)
-    if (!sessionWallet || sessionWallet.toLowerCase() !== walletAddress.toLowerCase()) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const privyToken = request.cookies.get('privy-token')?.value
+    if (!privyToken) {
+      return NextResponse.json({ error: 'No session' }, { status: 401 })
+    }
+    const session = await verifyPrivyToken(privyToken)
+    if (!session || session.walletAddress !== walletAddress.toLowerCase()) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const faucetPk = process.env.MUSDC_FAUCET_PRIVATE_KEY as Hex | undefined
