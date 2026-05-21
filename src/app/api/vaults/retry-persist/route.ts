@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createVaultRecord, vaultExists, getVaultByUuid } from '@/db/queries'
+import { createVaultRecord, vaultExists, getVaultByUuid, checkVaultRateLimit } from '@/db/queries'
 import { verifyPrivyToken } from '@/lib/verify-privy-token'
 
 export async function POST(request: NextRequest) {
@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
 
     if (typeof body.ownerAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(body.ownerAddress)) {
       return NextResponse.json({ error: 'Invalid ownerAddress format' }, { status: 400 })
+    }
+
+    const allowed = await checkVaultRateLimit(session.walletAddress)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Max 3 vaults per 2 minutes.' }, { status: 429 })
     }
 
     const existing = await vaultExists(uuid)

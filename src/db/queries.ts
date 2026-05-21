@@ -317,3 +317,16 @@ export async function recordFaucetClaim(
       set: updates,
     })
 }
+
+export async function checkVaultRateLimit(walletAddress: string): Promise<boolean> {
+  const db = await getDb()
+  const twoMinutesAgo = new Date(Date.now() - 120_000)
+  const rows = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(vaults)
+    .where(and(
+      eq(vaults.ownerAddress, walletAddress.toLowerCase()),
+      sql`created_at >= ${twoMinutesAgo.toISOString()}`,
+    ))
+  return Number(rows[0]?.count ?? 0) < 3
+}

@@ -15,8 +15,10 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
 
+// Best-effort in-memory rate limiter (per-edge-worker, not global on Vercel).
+// For production with multiple instances, add Vercel KV or Upstash.
 const RATE_LIMIT_WINDOW = 60_000
-const RATE_LIMIT_MAX = 30
+const RATE_LIMIT_MAX = 40
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
 function checkRateLimit(ip: string): boolean {
