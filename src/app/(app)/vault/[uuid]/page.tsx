@@ -127,7 +127,7 @@ export default function VaultDetailPage() {
 
   useEffect(() => {
     setHasSessionKey(!!(address && sessionStorage.getItem(sessionKey(uuid, address))))
-  }, [uuid])
+  }, [uuid, address])
 
   useEffect(() => {
     return () => {
@@ -329,12 +329,18 @@ export default function VaultDetailPage() {
         addToast({ title: 'MUSDC payment successful!', variant: 'accent' })
       }
 
+      if (!vault.licenseTermsId) {
+        setPurchaseStep('mint_failed')
+        addToast({ title: 'License terms not found', description: 'This vault has no license terms configured', variant: 'destructive' })
+        return
+      }
+
       setPurchaseStep('minting')
       addToast({ title: 'Minting license token...', description: 'Confirm the transaction in your wallet', variant: 'default' })
 
       const mintResult = await mintLicenseToken({
         licensorIpId: vault.ipId as `0x${string}`,
-        licenseTermsId: vault.licenseTermsId!,
+        licenseTermsId: vault.licenseTermsId,
         amount: 1,
         receiver: address as `0x${string}`,
       })
