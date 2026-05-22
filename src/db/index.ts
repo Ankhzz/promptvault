@@ -4,7 +4,13 @@ import * as schema from './schema'
 let _db: PostgresJsDatabase<typeof schema> | null = null
 
 async function createDb(): Promise<PostgresJsDatabase<typeof schema>> {
-  const connectionString = process.env.DATABASE_URL!
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error(
+      'DATABASE_URL is not set. Configure it in .env.local or Vercel environment variables.\n' +
+      'Format: postgresql://user:password@host:6543/database?pgbouncer=true'
+    )
+  }
 
   const { default: postgres } = await import('postgres')
   const { drizzle } = await import('drizzle-orm/postgres-js')

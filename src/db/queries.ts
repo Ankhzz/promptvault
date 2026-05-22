@@ -6,14 +6,12 @@ import { getDb } from '@/db'
 
 export async function getOrCreateUser(walletAddress: string) {
   const db = await getDb()
-  const rows = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).limit(1)
-  const existing = rows[0]
-  if (existing) {
-    await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.walletAddress, walletAddress))
-    return existing
-  }
-  const inserted = await db.insert(users).values({ walletAddress }).returning()
-  return inserted[0]
+  const result = await db.insert(users).values({ walletAddress })
+    .onConflictDoUpdate({
+      target: users.walletAddress,
+      set: { lastSeenAt: new Date() },
+    }).returning()
+  return result[0]
 }
 
 export async function createVaultRecord(data: {
@@ -196,18 +194,18 @@ export async function purchaseVault(
 ) {
   const db = await getDb()
   await getOrCreateUser(buyerAddress)
-  const existing = await db.select().from(purchases)
-    .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
-    .limit(1)
-  if (existing[0]) return existing[0]
   const inserted = await db.insert(purchases).values({
     vaultUuid,
     buyerAddress,
     buyerLicenseTokenId,
     mintTxHash,
     paid: true,
-  }).returning()
-  return inserted[0]
+  }).onConflictDoNothing().returning()
+  if (inserted[0]) return inserted[0]
+  const existing = await db.select().from(purchases)
+    .where(and(eq(purchases.vaultUuid, vaultUuid), eq(purchases.buyerAddress, buyerAddress)))
+    .limit(1)
+  return existing[0]
 }
 
 export async function getPurchase(vaultUuid: number, buyerAddress: string) {

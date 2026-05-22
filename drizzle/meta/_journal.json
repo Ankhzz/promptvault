@@ -22,6 +22,13 @@
       "when": 1779264239500,
       "tag": "0002_easy_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779275000000,
+      "tag": "0003_add_claimed_ip",
+      "breakpoints": true
     }
   ]
 }
