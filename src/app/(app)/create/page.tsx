@@ -812,10 +812,15 @@ export default function CreateVaultPage() {
         <Button
           variant="primary"
           size="lg"
-          onClick={step === 'done' ? () => {
+onClick={step === 'done' ? () => {
           setResult({})
           setStep('idle')
           setPriceMusdc('')
+          setSelectedFile(null)
+          setName('')
+          setDescription('')
+          setUnlockTime('')
+          if (fileInputRef.current) fileInputRef.current.value = ''
           isRunningRef.current = false
           } : runFullFlow}
           loading={step !== 'idle' && step !== 'done'}

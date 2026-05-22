@@ -89,9 +89,12 @@ export default function ExplorePage() {
                   <div className="flex items-center justify-between text-xs text-subtle">
                     <span className="font-mono">{shortenAddress(vault.ownerAddress)}</span>
                     <span>
-                      {vault.updatedAt instanceof Date
-                        ? vault.updatedAt.toLocaleDateString()
-                        : new Date(vault.updatedAt * 1000).toLocaleDateString()}
+                      {(() => {
+                        const d = vault.updatedAt
+                        if (d instanceof Date) return d.toLocaleDateString()
+                        if (typeof d === 'number') return new Date(d * 1000).toLocaleDateString()
+                        return new Date(d).toLocaleDateString()
+                      })()}
                     </span>
                   </div>
 

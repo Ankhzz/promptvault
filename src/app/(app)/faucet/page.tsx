@@ -207,13 +207,13 @@ export default function FaucetPage() {
                 <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
                   <ShieldIcon className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm text-warning font-medium">Fondo de gas agotado</p>
+                    <p className="text-sm text-warning font-medium">Faucet IP pool low</p>
                     <p className="text-xs text-muted mt-0.5">
-                      Nuestro faucet IP está bajo de saldo. Usa el{' '}
+                      The IP faucet wallet is running low. Use the{' '}
                       <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                        faucet oficial de Story
+                        official Story faucet
                       </a>
-                      {' '}mientras recargamos.
+                      {' '}while we refill.
                     </p>
                   </div>
                 </div>
