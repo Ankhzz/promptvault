@@ -66,9 +66,12 @@ export default function CreateVaultPage() {
   const [unlockTime, setUnlockTime] = useState('')
   const [priceMusdc, setPriceMusdc] = useState('')
   const [wasmReady, setWasmReady] = useState(false)
+  const [wasmError, setWasmError] = useState(false)
 
   useEffect(() => {
-    initWasm().then(() => setWasmReady(true)).catch(() => {})
+    initWasm()
+      .then(() => setWasmReady(true))
+      .catch(() => setWasmError(true))
   }, [])
 
   const getClients = useCallback(async () => {
@@ -816,10 +819,10 @@ export default function CreateVaultPage() {
           isRunningRef.current = false
           } : runFullFlow}
           loading={step !== 'idle' && step !== 'done'}
-          disabled={(step !== 'idle' && step !== 'done') || !wasmReady}
+          disabled={(step !== 'idle' && step !== 'done') || (!wasmReady && !wasmError)}
           className="w-full"
         >
-          {step === 'done' ? 'Create Another' : !wasmReady ? 'Loading WASM...' : 'Create Vault'}
+          {step === 'done' ? 'Create Another' : wasmError ? 'WASM failed - refresh page' : !wasmReady ? 'Loading WASM...' : 'Create Vault'}
         </Button>
           </CardFooter>
         </Card>

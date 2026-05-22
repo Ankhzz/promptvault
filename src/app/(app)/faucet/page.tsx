@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -59,15 +59,12 @@ export default function FaucetPage() {
     if (cooldownMs === null || cooldownMs <= 0) return
     const timer = setInterval(() => {
       setCooldownMs(prev => {
-        if (prev === null || prev <= 1000) {
-          clearInterval(timer)
-          return null
-        }
+        if (prev === null || prev <= 0) return null
         return prev - 1000
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [cooldownMs !== null && cooldownMs > 0])
+  }, [cooldownMs])
 
   const handleClaim = async () => {
     if (!address || claiming) return
