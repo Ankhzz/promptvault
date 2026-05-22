@@ -25,6 +25,7 @@ import {
   ClockIcon,
 } from '@/components/Icons'
 import { STORY_CHAIN, CONTRACTS, MUSDC_CONFIG } from '@/lib/constants'
+import { toBigIntSafe } from '@/lib/math'
 import { getVaultByUuid, getVaultLicenseTokens, getVaultActivity, getPurchase, purchaseVault, getVaultEncryptedDataKey, getPurchaseEncryptedDataKey } from '@/db/queries'
 import { decryptFileFromBase64, type EncryptedFile } from '@/lib/encrypt-file'
 import { decryptDataKeyForWallet, type EncryptedDataKey, type SignTypedDataFn, type SignMessageFn } from '@/lib/crypto/datakey-encryption'
@@ -81,6 +82,7 @@ export default function VaultDetailPage() {
   const [hasPurchased, setHasPurchased] = useState(false)
   const [confirmingPurchase, setConfirmingPurchase] = useState(false)
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>('idle')
+  const purchaseStepRef = useRef<PurchaseStep>('idle')
   const [buyerLicenseTokenId, setBuyerLicenseTokenId] = useState<string | null>(null)
   const [mintTxHash, setMintTxHash] = useState<string | null>(null)
   const { mintLicenseToken, isReady: mintReady } = useLicenseToken()
@@ -286,8 +288,13 @@ export default function VaultDetailPage() {
           transport: http(STORY_CHAIN.rpcUrl),
         })
 
-        const priceWei = BigInt(Math.floor(Number(priceMusdc) * 10 ** MUSDC_CONFIG.decimals))
+        const priceWei = toBigIntSafe(priceMusdc)
+        if (!priceWei) {
+          addToast({ title: 'Invalid MUSDC price', description: 'Could not parse vault price', variant: 'destructive' })
+          return
+        }
 
+        purchaseStepRef.current = 'approving'
         setPurchaseStep('approving')
         addToast({ title: 'Approving MUSDC...', description: 'Confirm the approval in your wallet', variant: 'default' })
 
@@ -298,7 +305,7 @@ export default function VaultDetailPage() {
           args: [wallet.address as Address, CONTRACTS.MARKETPLACE],
         })
 
-        if (currentAllowance < priceWei) {
+        if (currentAllowance < priceWei!) {
           const maxUint256 = BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935')
           const approveTxHash = await walletClient.writeContract({
             address: CONTRACTS.MUSDC_TOKEN,
@@ -314,6 +321,7 @@ export default function VaultDetailPage() {
           addToast({ title: 'MUSDC already approved', variant: 'default' })
         }
 
+        purchaseStepRef.current = 'purchasing'
         setPurchaseStep('purchasing')
         addToast({ title: 'Purchasing via Marketplace...', description: 'Confirm the purchase in your wallet', variant: 'default' })
 
@@ -321,7 +329,7 @@ export default function VaultDetailPage() {
           address: CONTRACTS.MARKETPLACE,
           abi: MARKETPLACE_ABI,
           functionName: 'purchase',
-          args: [BigInt(vault.uuid), priceWei, vault.ownerAddress as Address],
+          args: [BigInt(vault.uuid), priceWei!, vault.ownerAddress as Address],
           account: wallet.address as Address,
           chain: { id: STORY_CHAIN.id, name: STORY_CHAIN.name, nativeCurrency: { name: 'IP', symbol: 'IP', decimals: 18 }, rpcUrls: { default: { http: [STORY_CHAIN.rpcUrl] } } },
         })
@@ -330,11 +338,13 @@ export default function VaultDetailPage() {
       }
 
       if (!vault.licenseTermsId) {
+        purchaseStepRef.current = 'mint_failed'
         setPurchaseStep('mint_failed')
         addToast({ title: 'License terms not found', description: 'This vault has no license terms configured', variant: 'destructive' })
         return
       }
 
+      purchaseStepRef.current = 'minting'
       setPurchaseStep('minting')
       addToast({ title: 'Minting license token...', description: 'Confirm the transaction in your wallet', variant: 'default' })
 
@@ -356,6 +366,7 @@ export default function VaultDetailPage() {
       setBuyerLicenseTokenId(tokenIdStr)
       setMintTxHash(txHash)
 
+      purchaseStepRef.current = 'finalizing'
       setPurchaseStep('finalizing')
       addToast({ title: 'Finalizing access...', description: 'Saving purchase record', variant: 'default' })
 
@@ -369,13 +380,14 @@ export default function VaultDetailPage() {
       params.set('licenseTokenId', tokenIdStr)
       router.push(`/unlock?${params}`)
     } catch (err) {
-      if (purchaseStep === 'minting' && buyerLicenseTokenId && mintTxHash) {
+      const currentStep = purchaseStepRef.current
+      if (currentStep === 'finalizing' || (currentStep === 'minting' && buyerLicenseTokenId && mintTxHash)) {
         setPurchaseStep('finalize_failed')
         addToast({ title: 'DB save failed', description: 'License token minted but purchase record failed. Click Retry.', variant: 'warning' })
-      } else if (purchaseStep === 'approving') {
+      } else if (currentStep === 'approving') {
         setPurchaseStep('approve_failed')
         addToast({ title: 'Approval failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
-      } else if (purchaseStep === 'purchasing') {
+      } else if (currentStep === 'purchasing') {
         setPurchaseStep('purchase_failed')
         addToast({ title: 'Marketplace purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
       } else {
@@ -383,7 +395,7 @@ export default function VaultDetailPage() {
         addToast({ title: 'Purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
       }
     }
-  }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router, wallets, purchaseStep])
+  }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router, wallets])
 
   const handleRetryFinalize = useCallback(async () => {
     if (!vault || !address || !buyerLicenseTokenId || !mintTxHash) return
@@ -807,8 +819,8 @@ export default function VaultDetailPage() {
                                 <span className="block text-xs text-subtle mt-1">{txDescription}</span>
                               </p>
               <div className="flex gap-2">
-                <Button variant="primary" size="sm" onClick={handlePurchase}>
-                  Confirm Purchase
+                <Button variant="primary" size="sm" onClick={handlePurchase} disabled={purchaseBusy}>
+                  {purchaseBusy ? 'Processing...' : 'Confirm Purchase'}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setConfirmingPurchase(false)}>
                   Cancel

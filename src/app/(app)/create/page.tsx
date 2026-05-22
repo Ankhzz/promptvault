@@ -11,6 +11,7 @@ import { ShieldIcon, LockIcon, ArrowRightIcon, CheckIcon, FileIcon, ClockIcon, P
 import { AuthGuard } from '@/components/AuthGuard'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { STORY_CHAIN, CONTRACTS, CDR_CONFIG, getCometRpcUrl } from '@/lib/constants'
+import { toBigIntSafe } from '@/lib/math'
 import { CDR_CONDITIONS, encodeLicenseReadCondition, encodeWriteConditionData, encodeTimeLockReadCondition } from '@/lib/cdr'
 import { initWasm, CDRClient } from '@piplabs/cdr-sdk'
 import { createPublicClient, createWalletClient, custom, http, type Address, toHex } from 'viem'
@@ -108,6 +109,11 @@ export default function CreateVaultPage() {
         addToast({ title: 'Time-Lock contract not deployed', description: 'Deploy TimeLockReadCondition on Aeneid and set address in constants.ts', variant: 'destructive' })
         return
       }
+    }
+
+    if (vaultType === 'licensed' && priceMusdc && !toBigIntSafe(priceMusdc)) {
+      addToast({ title: 'Invalid MUSDC price', description: 'Enter a valid number (e.g. 10 or 0.01)', variant: 'warning' })
+      return
     }
 
     const clients = await getClients()
