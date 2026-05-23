@@ -58,10 +58,16 @@ export async function POST(request: NextRequest) {
       privyToken = authHeader.slice(7)
     }
     if (!privyToken) {
+      console.error('[faucet] 401 No session — no cookie ni Authorization header')
       return NextResponse.json({ error: 'No session' }, { status: 401 })
     }
     const session = await verifyPrivyToken(privyToken)
-    if (!session || session.walletAddress !== walletAddress.toLowerCase()) {
+    if (!session) {
+      console.error('[faucet] 401 Unauthorized — verifyPrivyToken returned null (token inválido)')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.walletAddress !== walletAddress.toLowerCase()) {
+      console.error('[faucet] 401 Unauthorized — wallet mismatch:', session.walletAddress, 'vs', walletAddress.toLowerCase())
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

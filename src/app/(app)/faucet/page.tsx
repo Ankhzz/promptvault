@@ -75,6 +75,7 @@ export default function FaucetPage() {
     setLastResult(null)
     try {
       const token = await getAccessToken()
+      console.log('[faucet] token obtenido:', token ? `OK (${token.slice(0, 20)}...)` : 'NULL')
       const res = await fetch('/api/faucet/claim-all', {
         method: 'POST',
         headers: {
