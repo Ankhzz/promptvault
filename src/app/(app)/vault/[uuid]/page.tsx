@@ -104,6 +104,7 @@ export default function VaultDetailPage() {
   const [hasSessionKey, setHasSessionKey] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     if (!uuid || Number.isNaN(uuid)) {
       setLoading(false)
       return
@@ -115,18 +116,21 @@ export default function VaultDetailPage() {
       getVaultActivity(uuid),
     ])
       .then(([v, l, a]) => {
+        if (cancelled) return
         setVault(v)
         setLicenses(l)
         setActivityEntries(a)
         if (v?.isForSale && address && v.ownerAddress.toLowerCase() !== address.toLowerCase()) {
           getPurchase(uuid, address).then(p => {
+            if (cancelled) return
             setHasPurchased(!!p?.paid)
             if (p?.buyerLicenseTokenId) setBuyerLicenseTokenId(p.buyerLicenseTokenId)
           })
         }
       })
-      .catch(() => { addToast({ title: 'Failed to load vault data', variant: 'destructive' }) })
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) addToast({ title: 'Failed to load vault data', variant: 'destructive' }) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [uuid, address])
 
   useEffect(() => {
@@ -440,10 +444,13 @@ export default function VaultDetailPage() {
     }
   }, [vault, address, buyerLicenseTokenId, mintTxHash, addToast, router])
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }, [])
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
     setCopied(id)
-    setTimeout(() => setCopied(null), 2000)
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopied(null), 2000)
   }
 
   if (Number.isNaN(uuid)) {
@@ -791,9 +798,18 @@ export default function VaultDetailPage() {
           return (
             <div className="flex-1 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 space-y-2">
               <p className="text-sm text-warning">License token minted but purchase record failed</p>
-              <Button variant="primary" size="sm" onClick={handleRetryFinalize}>
-                Retry Finalize
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" onClick={handleRetryFinalize}>
+                  Retry Finalize
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  const params = new URLSearchParams({ vaultId: String(uuid) })
+                  if (buyerLicenseTokenId) params.set('licenseTokenId', buyerLicenseTokenId)
+                  router.push(`/unlock?${params}`)
+                }}>
+                  Skip
+                </Button>
+              </div>
             </div>
           )
         }

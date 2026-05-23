@@ -91,64 +91,61 @@ export default function CreateVaultPage() {
     return { walletClient, publicClient, storyClient, address: wallet.address as Address }
   }, [wallets])
 
-  const runFullFlow = useCallback(async () => {
-    if (isRunningRef.current) return
-    if (!name.trim()) {
-      addToast({ title: 'Name required', description: 'Give your vault a name', variant: 'warning' })
-      return
-    }
-
-    if (vaultType === 'timelocked') {
-      if (!unlockTime) {
-        addToast({ title: 'Unlock time required', description: 'Set a future unlock time for the time-locked vault', variant: 'warning' })
-        return
-      }
-      const unlockDate = new Date(unlockTime)
-      if (unlockDate <= new Date()) {
-        addToast({ title: 'Invalid unlock time', description: 'Unlock time must be in the future', variant: 'warning' })
-        return
-      }
-      if (!CONTRACTS.TIME_LOCK_READ_CONDITION) {
-        addToast({ title: 'Time-Lock contract not deployed', description: 'Deploy TimeLockReadCondition on Aeneid and set address in constants.ts', variant: 'destructive' })
-        return
-      }
-    }
-
-    if (vaultType === 'licensed' && priceMusdc && !toBigIntSafe(priceMusdc)) {
-      addToast({ title: 'Invalid MUSDC price', description: 'Enter a valid number (e.g. 10 or 0.01)', variant: 'warning' })
-      return
-    }
-
-    isRunningRef.current = true
-    const clients = await getClients()
-    if (!clients) {
-      isRunningRef.current = false
-      addToast({ title: 'Wallet not connected', variant: 'destructive' })
-      return
-    }
-
-    // Lighthouse API key is checked server-side on the upload API route
-
-    const txHashes: string[] = []
-    let ipfsCid: string | undefined
-    let encryptedFileMeta: string | undefined
+  const persistVault = useCallback(async (params: {
+    uuid: number
+    ownerAddress: Address
+    ipId?: Address
+    licenseTermsId?: number
+    licenseTokenId?: string
+    ipfsCid?: string
+    encryptedFileMeta?: string
+    encryptedDataKey: Awaited<ReturnType<typeof encryptDataKeyForWallet>>
+    allocateTxHash: string
+    writeTxHash: string
+    registerTxHash?: string
+    mintTxHash?: string
+    unlockTime?: Date
+    vaultType: VaultType
+    priceMusdc?: string
+  }) => {
+    setStep('persist')
+    addToast({ title: 'Saving vault record...', variant: 'default' })
 
     try {
-      if (vaultType === 'licensed') {
-        await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
-      } else if (vaultType === 'timelocked') {
-        await runTimeLockedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
-      } else {
-        await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
-      }
-    } catch (err) {
-      const parsed = parseTxError(err)
-      setStep('idle')
-      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
-    } finally {
-      isRunningRef.current = false
+      await createVaultRecord({
+        uuid: params.uuid,
+        ownerAddress: params.ownerAddress,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        vaultType: params.vaultType,
+        ipId: params.ipId,
+        licenseTermsId: params.licenseTermsId,
+        licenseTokenId: params.licenseTokenId,
+        ipfsCid: params.ipfsCid,
+        encryptedFileMeta: params.encryptedFileMeta,
+        encryptedDataKey: JSON.stringify(params.encryptedDataKey),
+        dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
+        allocateTxHash: params.allocateTxHash,
+        writeTxHash: params.writeTxHash,
+        registerTxHash: params.registerTxHash,
+        mintTxHash: params.mintTxHash,
+        unlockTime: params.unlockTime,
+        priceMusdc: params.priceMusdc,
+      })
+      setResult(prev => ({ ...prev, dbPersisted: true }))
+    } catch (dbErr) {
+      setResult(prev => ({ ...prev, dbPersisted: false }))
+      addToast({
+        title: 'DB save failed',
+        description: 'Vault is on-chain but local record failed. You can retry from dashboard.',
+        variant: 'warning',
+      })
     }
-  }, [name, vaultType, unlockTime, priceMusdc, getClients, addToast, selectedFile])
+
+    setStep('done')
+    isRunningRef.current = false
+    addToast({ title: 'Vault created!', description: `UUID: ${params.uuid}`, variant: 'accent' })
+  }, [name, description, addToast])
 
   const runLicensedFlow = useCallback(async (
     clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
@@ -285,7 +282,108 @@ export default function CreateVaultPage() {
       vaultType,
       priceMusdc: priceMusdc || undefined,
     })
-  }, [name, description, selectedFile, priceMusdc, addToast])
+  }, [name, selectedFile, priceMusdc, addToast, persistVault])
+
+  const runTimeLockedFlow = useCallback(async (
+    clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
+    txHashes: string[],
+    _ipfsCid: string | undefined,
+    _encryptedFileMeta: string | undefined,
+    vaultType: VaultType,
+  ) => {
+  setStep('upload')
+  addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
+
+  const cdrClient = new CDRClient({
+      network: CDR_CONFIG.network,
+      publicClient: clients.publicClient,
+      walletClient: clients.walletClient,
+      cometRpcUrl: getCometRpcUrl(),
+      validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
+    })
+
+    const unlockDate = new Date(unlockTime)
+    const unlockTimestamp = BigInt(Math.floor(unlockDate.getTime() / 1000))
+
+    const writeConditionData = encodeWriteConditionData(clients.address)
+    const readConditionData = encodeTimeLockReadCondition(unlockTimestamp)
+
+    const globalPubKey = await cdrClient.observer.getGlobalPubKey()
+    const dataKey = crypto.getRandomValues(new Uint8Array(32))
+
+    const uploadResult = await cdrClient.uploader.uploadCDR({
+      dataKey,
+      globalPubKey,
+      updatable: false,
+      writeConditionAddr: CDR_CONDITIONS.writeCondition,
+      readConditionAddr: CONTRACTS.TIME_LOCK_READ_CONDITION,
+      writeConditionData,
+      readConditionData,
+      accessAuxData: '0x',
+    })
+
+    txHashes.push(uploadResult.txHashes.allocate)
+    txHashes.push(uploadResult.txHashes.write)
+
+    let ipfsCid: string | undefined
+    let encryptedFileMeta: string | undefined
+
+    if (selectedFile) {
+      setStep('encrypt_file')
+      addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
+
+      const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
+      encryptedFileMeta = JSON.stringify(encrypted)
+
+      ipfsCid = await uploadToLighthouse(encryptedBlob)
+      setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
+    }
+
+    setStep('encrypt_key')
+    addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
+
+    const signTypedDataFn = async (params: {
+      domain: typeof EIP712_DOMAIN
+      types: typeof EIP712_TYPES
+      primaryType: 'EncryptDataKey'
+      message: { wallet: Address; purpose: string; version: bigint }
+    }) => {
+      return clients.walletClient.signTypedData({
+        domain: params.domain,
+        types: params.types,
+        primaryType: params.primaryType,
+        message: params.message,
+      })
+    }
+
+    const encryptedDataKey = await encryptDataKeyForWallet(
+      dataKey,
+      clients.address,
+      signTypedDataFn,
+    )
+
+    setResult(prev => ({
+      ...prev,
+      vaultUuid: uploadResult.uuid,
+      txHashes,
+      encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
+      dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+    }))
+
+    await persistVault({
+      uuid: uploadResult.uuid,
+      ownerAddress: clients.address,
+      ipfsCid,
+      encryptedFileMeta,
+      encryptedDataKey,
+      allocateTxHash: uploadResult.txHashes.allocate,
+      writeTxHash: uploadResult.txHashes.write,
+      unlockTime: unlockDate,
+      vaultType,
+    })
+  }, [selectedFile, unlockTime, addToast, persistVault])
 
   const runPrivateFlow = useCallback(async (
     clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
@@ -394,164 +492,66 @@ export default function CreateVaultPage() {
       writeTxHash: writeResult.txHash,
       vaultType,
     })
-  }, [name, description, selectedFile, addToast])
+  }, [selectedFile, addToast, persistVault])
 
-  const runTimeLockedFlow = useCallback(async (
-    clients: NonNullable<Awaited<ReturnType<typeof getClients>>>,
-    txHashes: string[],
-    _ipfsCid: string | undefined,
-    _encryptedFileMeta: string | undefined,
-    vaultType: VaultType,
-  ) => {
-  setStep('upload')
-  addToast({ title: 'Encrypting & uploading time-locked vault...', variant: 'default' })
+  const runFullFlow = useCallback(async () => {
+    if (isRunningRef.current) return
+    if (!name.trim()) {
+      addToast({ title: 'Name required', description: 'Give your vault a name', variant: 'warning' })
+      return
+    }
 
-  const cdrClient = new CDRClient({
-      network: CDR_CONFIG.network,
-      publicClient: clients.publicClient,
-      walletClient: clients.walletClient,
-      cometRpcUrl: getCometRpcUrl(),
-      validationRpcUrls: [CDR_CONFIG.validationRpcUrl],
-    })
+    if (vaultType === 'timelocked') {
+      if (!unlockTime) {
+        addToast({ title: 'Unlock time required', description: 'Set a future unlock time for the time-locked vault', variant: 'warning' })
+        return
+      }
+      const unlockDate = new Date(unlockTime)
+      if (unlockDate <= new Date()) {
+        addToast({ title: 'Invalid unlock time', description: 'Unlock time must be in the future', variant: 'warning' })
+        return
+      }
+      if (!CONTRACTS.TIME_LOCK_READ_CONDITION) {
+        addToast({ title: 'Time-Lock contract not deployed', description: 'Deploy TimeLockReadCondition on Aeneid and set address in constants.ts', variant: 'destructive' })
+        return
+      }
+    }
 
-    const unlockDate = new Date(unlockTime)
-    const unlockTimestamp = BigInt(Math.floor(unlockDate.getTime() / 1000))
+    if (vaultType === 'licensed' && priceMusdc && !toBigIntSafe(priceMusdc)) {
+      addToast({ title: 'Invalid MUSDC price', description: 'Enter a valid number (e.g. 10 or 0.01)', variant: 'warning' })
+      return
+    }
 
-    const writeConditionData = encodeWriteConditionData(clients.address)
-    const readConditionData = encodeTimeLockReadCondition(unlockTimestamp)
+    isRunningRef.current = true
+    const clients = await getClients()
+    if (!clients) {
+      isRunningRef.current = false
+      addToast({ title: 'Wallet not connected', variant: 'destructive' })
+      return
+    }
 
-    const globalPubKey = await cdrClient.observer.getGlobalPubKey()
-    const dataKey = crypto.getRandomValues(new Uint8Array(32))
+    // Lighthouse API key is checked server-side on the upload API route
 
-    const uploadResult = await cdrClient.uploader.uploadCDR({
-      dataKey,
-      globalPubKey,
-      updatable: false,
-      writeConditionAddr: CDR_CONDITIONS.writeCondition,
-      readConditionAddr: CONTRACTS.TIME_LOCK_READ_CONDITION,
-      writeConditionData,
-      readConditionData,
-      accessAuxData: '0x',
-    })
-
-    txHashes.push(uploadResult.txHashes.allocate)
-    txHashes.push(uploadResult.txHashes.write)
-
+    const txHashes: string[] = []
     let ipfsCid: string | undefined
     let encryptedFileMeta: string | undefined
 
-    if (selectedFile) {
-      setStep('encrypt_file')
-      addToast({ title: 'Encrypting file & uploading to IPFS...', variant: 'default' })
-
-      const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
-      encryptedFileMeta = JSON.stringify(encrypted)
-
-      ipfsCid = await uploadToLighthouse(encryptedBlob)
-      setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
-    }
-
-    setStep('encrypt_key')
-    addToast({ title: 'Encrypting data key for wallet...', variant: 'default' })
-
-    const signTypedDataFn = async (params: {
-      domain: typeof EIP712_DOMAIN
-      types: typeof EIP712_TYPES
-      primaryType: 'EncryptDataKey'
-      message: { wallet: Address; purpose: string; version: bigint }
-    }) => {
-      return clients.walletClient.signTypedData({
-        domain: params.domain,
-        types: params.types,
-        primaryType: params.primaryType,
-        message: params.message,
-      })
-    }
-
-    const encryptedDataKey = await encryptDataKeyForWallet(
-      dataKey,
-      clients.address,
-      signTypedDataFn,
-    )
-
-    setResult(prev => ({
-      ...prev,
-      vaultUuid: uploadResult.uuid,
-      txHashes,
-      encryptedDataKeyJson: JSON.stringify(encryptedDataKey),
-      dataKeyEncryptionMetaJson: JSON.stringify({ version: 2, eip712: true }),
-      allocateTxHash: uploadResult.txHashes.allocate,
-      writeTxHash: uploadResult.txHashes.write,
-    }))
-
-    await persistVault({
-      uuid: uploadResult.uuid,
-      ownerAddress: clients.address,
-      ipfsCid,
-      encryptedFileMeta,
-      encryptedDataKey,
-      allocateTxHash: uploadResult.txHashes.allocate,
-      writeTxHash: uploadResult.txHashes.write,
-      unlockTime: unlockDate,
-      vaultType,
-    })
-  }, [name, description, selectedFile, unlockTime, addToast])
-
-  const persistVault = useCallback(async (params: {
-    uuid: number
-    ownerAddress: Address
-    ipId?: Address
-    licenseTermsId?: number
-    licenseTokenId?: string
-    ipfsCid?: string
-    encryptedFileMeta?: string
-    encryptedDataKey: Awaited<ReturnType<typeof encryptDataKeyForWallet>>
-    allocateTxHash: string
-    writeTxHash: string
-    registerTxHash?: string
-    mintTxHash?: string
-    unlockTime?: Date
-    vaultType: VaultType
-    priceMusdc?: string
-  }) => {
-    setStep('persist')
-    addToast({ title: 'Saving vault record...', variant: 'default' })
-
     try {
-      await createVaultRecord({
-        uuid: params.uuid,
-        ownerAddress: params.ownerAddress,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        vaultType: params.vaultType,
-        ipId: params.ipId,
-        licenseTermsId: params.licenseTermsId,
-        licenseTokenId: params.licenseTokenId,
-        ipfsCid: params.ipfsCid,
-        encryptedFileMeta: params.encryptedFileMeta,
-        encryptedDataKey: JSON.stringify(params.encryptedDataKey),
-        dataKeyEncryptionMeta: JSON.stringify({ version: 2, eip712: true }),
-        allocateTxHash: params.allocateTxHash,
-        writeTxHash: params.writeTxHash,
-        registerTxHash: params.registerTxHash,
-        mintTxHash: params.mintTxHash,
-        unlockTime: params.unlockTime,
-        priceMusdc: params.priceMusdc,
-      })
-      setResult(prev => ({ ...prev, dbPersisted: true }))
-    } catch (dbErr) {
-      setResult(prev => ({ ...prev, dbPersisted: false }))
-      addToast({
-        title: 'DB save failed',
-        description: 'Vault is on-chain but local record failed. You can retry from dashboard.',
-        variant: 'warning',
-      })
+      if (vaultType === 'licensed') {
+        await runLicensedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
+      } else if (vaultType === 'timelocked') {
+        await runTimeLockedFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
+      } else {
+        await runPrivateFlow(clients, txHashes, ipfsCid, encryptedFileMeta, vaultType)
+      }
+    } catch (err) {
+      const parsed = parseTxError(err)
+      setStep('idle')
+      addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+    } finally {
+      isRunningRef.current = false
     }
-
-    setStep('done')
-    isRunningRef.current = false
-    addToast({ title: 'Vault created!', description: `UUID: ${params.uuid}`, variant: 'accent' })
-  }, [name, description, addToast])
+  }, [name, vaultType, unlockTime, priceMusdc, getClients, addToast, selectedFile, runLicensedFlow, runTimeLockedFlow, runPrivateFlow])
 
   const stepItems = [
     ...(vaultType === 'licensed' ? [
