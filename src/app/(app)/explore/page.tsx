@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { VaultIcon, EyeIcon, PricetagIcon } from '@/components/Icons'
 import { getVaultsForSale } from '@/db/queries'
@@ -63,9 +63,7 @@ export default function ExplorePage() {
             <PricetagIcon className="h-12 w-12 text-subtle mb-4" />
             <p className="text-muted text-sm">No vaults for sale yet</p>
             <p className="text-subtle text-xs mt-1 mb-6">Check back later for community listings</p>
-            <Link href="/">
-              <Button variant="outline" size="sm">Back to Dashboard</Button>
-            </Link>
+            <Link href="/" className={buttonVariants('outline', 'sm')}>Back to Dashboard</Link>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -98,11 +96,9 @@ export default function ExplorePage() {
                     </span>
                   </div>
 
-                  <Link href={`/vault/${vault.uuid}`} className="block">
-                    <Button variant="outline" size="sm" className="w-full">
-                      <EyeIcon className="h-3.5 w-3.5 mr-1" />
-                      View Vault
-                    </Button>
+                  <Link href={`/vault/${vault.uuid}`} className={`${buttonVariants('outline', 'sm')} w-full`}>
+                    <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                    View Vault
                   </Link>
                 </div>
               </Card>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/Toast'
 import { AuthGuard } from '@/components/AuthGuard'
@@ -212,9 +212,7 @@ export default function MyVaultsPage() {
                 Manage your vaults and access purchased content
               </p>
             </div>
-          <Link href="/create">
-            <Button variant="primary" size="sm">Create Vault</Button>
-          </Link>
+          <Link href="/create" className={buttonVariants('primary', 'sm')}>Create Vault</Link>
         </div>
 
           <div className="flex items-center gap-1 rounded-[6px] border border-border bg-surface p-1">
@@ -271,13 +269,9 @@ export default function MyVaultsPage() {
                 : 'Create your first encrypted vault to get started'}
             </p>
             {activeTab === 'purchased' ? (
-                <Link href="/explore">
-                  <Button variant="outline" size="sm">Browse Marketplace</Button>
-                </Link>
+                <Link href="/explore" className={buttonVariants('outline', 'sm')}>Browse Marketplace</Link>
               ) : (
-                <Link href="/create">
-                  <Button variant="outline" size="sm">Create First Vault</Button>
-              </Link>
+                <Link href="/create" className={buttonVariants('outline', 'sm')}>Create First Vault</Link>
             )}
           </Card>
         ) : (
@@ -350,18 +344,14 @@ export default function MyVaultsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                <Link href={`/vault/${vault.uuid}`}>
-                  <Button variant="outline" size="sm">
-                    <EyeIcon className="h-3.5 w-3.5 mr-1" />
-                            View
-                          </Button>
-                        </Link>
-                        <Link href={unlockHref}>
-                          <Button variant="primary" size="sm">
-                            <UnlockIcon className="h-3.5 w-3.5 mr-1" />
-                            Unlock
-                          </Button>
-                        </Link>
+                <Link href={`/vault/${vault.uuid}`} className={buttonVariants('outline', 'sm')}>
+                  <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                  View
+                </Link>
+                <Link href={unlockHref} className={buttonVariants('primary', 'sm')}>
+                  <UnlockIcon className="h-3.5 w-3.5 mr-1" />
+                  Unlock
+                </Link>
                       </div>
                     </div>
 

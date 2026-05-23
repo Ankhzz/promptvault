@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { VaultIcon, ShieldIcon, KeyIcon, ArrowRightIcon } from '@/components/Icons'
 import Link from 'next/link'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
@@ -132,11 +132,7 @@ export default function DashboardPage() {
 
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl tracking-tight">Your Vaults</h2>
-              <Link href="/create">
-                <Button variant="primary" size="sm">
-                  Create Vault
-                </Button>
-              </Link>
+              <Link href="/create" className={buttonVariants('primary', 'sm')}>Create Vault</Link>
             </div>
 
             {loading ? (
@@ -168,7 +164,7 @@ export default function DashboardPage() {
                           </div>
                           <p className="text-xs text-muted mt-1 font-mono">UUID {vault.uuid} &middot; {vault.ipId ? `${vault.ipId.slice(0, 10)}...${vault.ipId.slice(-6)}` : 'Private vault'}</p>
                         </div>
-                        <Button variant="outline" size="sm">View</Button>
+                        <span className={buttonVariants('outline', 'sm')}>View</span>
                       </div>
                     </Card>
                   </Link>
@@ -179,11 +175,7 @@ export default function DashboardPage() {
                 <VaultIcon className="h-12 w-12 text-subtle mb-4" />
                 <p className="text-muted text-sm">No vaults yet</p>
                 <p className="text-subtle text-xs mt-1 mb-6">Create your first encrypted vault to get started</p>
-                <Link href="/create">
-                  <Button variant="outline" size="sm">
-                    Create First Vault
-                  </Button>
-                </Link>
+                <Link href="/create" className={buttonVariants('outline', 'sm')}>Create First Vault</Link>
               </Card>
             )}
           </>

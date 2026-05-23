@@ -1,8 +1,8 @@
 import { cn } from '@/lib/cn'
 import { type ButtonHTMLAttributes, forwardRef } from 'react'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline'
-type Size = 'sm' | 'md' | 'lg' | 'icon'
+export type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline'
+export type Size = 'sm' | 'md' | 'lg' | 'icon'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
@@ -30,19 +30,25 @@ const sizeStyles: Record<Size, string> = {
   icon: 'h-10 w-10 rounded-[var(--radius-sm)]',
 }
 
+export function buttonVariants(variant: Variant = 'primary', size: Size = 'md'): string {
+  return cn(
+    'inline-flex items-center justify-center font-medium transition-all duration-[var(--transition-fast)]',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+    'select-none whitespace-nowrap',
+    variantStyles[variant],
+    sizeStyles[size],
+  )
+}
+
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, disabled, children, ...props }, ref) => (
     <button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center font-medium transition-all duration-[var(--transition-fast)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        'disabled:pointer-events-none disabled:opacity-40',
-        'select-none whitespace-nowrap',
+        buttonVariants(variant, size),
         'hover:scale-[1.02] active:scale-[0.98]',
-        variantStyles[variant],
-        sizeStyles[size],
+        'disabled:pointer-events-none disabled:opacity-40',
         loading && 'pointer-events-none opacity-60',
         className,
       )}
@@ -60,4 +66,4 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = 'Button'
 
-export { Button, type ButtonProps, type Variant, type Size }
+export { Button, type ButtonProps }

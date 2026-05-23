@@ -722,7 +722,13 @@ export default function CreateVaultPage() {
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (file) setSelectedFile(file)
+                if (file) {
+                  if (file.size > 10 * 1024 * 1024) {
+                    addToast({ title: 'File too large', description: 'Maximum file size is 10 MB', variant: 'warning' })
+                    return
+                  }
+                  setSelectedFile(file)
+                }
               }}
               disabled={step !== 'idle'}
             />

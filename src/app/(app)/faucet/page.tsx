@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ShieldIcon, ExternalLinkIcon, DropletIcon, ClockIcon, CheckIcon } from '@/components/Icons'
@@ -240,11 +240,9 @@ export default function FaucetPage() {
               >
                 {buttonLabel}
               </Button>
-              <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="lg">
-                  Story Faucet
-                  <ExternalLinkIcon className="h-4 w-4 ml-2" />
-                </Button>
+              <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className={buttonVariants('outline', 'lg')}>
+                Story Faucet
+                <ExternalLinkIcon className="h-4 w-4 ml-2" />
               </a>
             </CardFooter>
           </Card>
