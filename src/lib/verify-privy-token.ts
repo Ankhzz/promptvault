@@ -33,7 +33,7 @@ export async function verifyPrivyToken(token: string): Promise<{ walletAddress: 
 
     const linkedWallet = user?.linkedAccounts?.find(
       (a: any) => a.type === 'wallet' || a.type === 'smart_wallet',
-    )
+    ) as { address?: string } | undefined
     const walletAddress = linkedWallet?.address
     if (!walletAddress) {
       return null
