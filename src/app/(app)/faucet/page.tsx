@@ -24,6 +24,7 @@ type FaucetStatus = {
 }
 
 export default function FaucetPage() {
+  const { getAccessToken } = usePrivy()
   const { wallets } = useWallets()
   const { addToast } = useToast()
   const address = wallets[0]?.address
@@ -73,9 +74,13 @@ export default function FaucetPage() {
     setClaiming(true)
     setLastResult(null)
     try {
+      const token = await getAccessToken()
       const res = await fetch('/api/faucet/claim-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ walletAddress: address }),
       })
       const data = await res.json()

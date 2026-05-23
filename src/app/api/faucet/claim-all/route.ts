@@ -52,7 +52,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
     }
 
-    const privyToken = request.cookies.get('privy-token')?.value
+    let privyToken = request.cookies.get('privy-token')?.value
+    const authHeader = request.headers.get('authorization')
+    if (!privyToken && authHeader?.startsWith('Bearer ')) {
+      privyToken = authHeader.slice(7)
+    }
     if (!privyToken) {
       return NextResponse.json({ error: 'No session' }, { status: 401 })
     }
