@@ -2,6 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const PROTECTED_ROUTES = ['/create', '/unlock', '/activity']
 
+const CSP_ALLOWED_HOSTS = new Set([
+  'promptvaultcdr.vercel.app',
+  'localhost:3000',
+])
+
+function isAllowedCspHost(host: string): boolean {
+  return CSP_ALLOWED_HOSTS.has(host) || host.endsWith('.vercel.app')
+}
+
 const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
@@ -34,6 +43,7 @@ function checkRateLimit(ip: string): boolean {
 
 function getCsp(host: string): string {
   const isDev = process.env.NODE_ENV === 'development'
+  const safeHost = isAllowedCspHost(host) ? host : 'localhost:3000'
 
   const base = [
     "default-src 'self'",
@@ -45,7 +55,7 @@ function getCsp(host: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `report-uri ${isDev ? 'http' : 'https'}://${host}/api/csp-report`,
+    `report-uri ${isDev ? 'http' : 'https'}://${safeHost}/api/csp-report`,
   ]
 
   const defaultCometUrl = 'http://172.192.41.96:26657'

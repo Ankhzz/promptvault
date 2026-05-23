@@ -11,17 +11,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid uuid' }, { status: 400 })
     }
 
+    if (typeof body.ownerAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(body.ownerAddress)) {
+      return NextResponse.json({ error: 'Invalid ownerAddress format' }, { status: 400 })
+    }
+
     const privyToken = request.cookies.get('privy-token')?.value
     if (!privyToken) {
       return NextResponse.json({ error: 'No session' }, { status: 401 })
     }
     const session = await verifyPrivyToken(privyToken)
-    if (!session || !body.ownerAddress || session.walletAddress !== String(body.ownerAddress).toLowerCase()) {
+    if (!session || session.walletAddress !== body.ownerAddress.toLowerCase()) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (typeof body.ownerAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(body.ownerAddress)) {
-      return NextResponse.json({ error: 'Invalid ownerAddress format' }, { status: 400 })
     }
 
     const allowed = await checkVaultRateLimit(session.walletAddress)

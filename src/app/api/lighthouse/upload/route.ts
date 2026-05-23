@@ -23,6 +23,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File too large. Maximum 10 MB.' }, { status: 400 })
+    }
+
+    const ALLOWED_TYPES = new Set([
+      'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+      'application/pdf',
+      'text/plain',
+    ])
+    if (!ALLOWED_TYPES.has(file.type) && file.type !== '') {
+      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
+    }
+
     const lighthouse = await import('@lighthouse-web3/sdk')
     const result = await lighthouse.uploadBuffer(file, apiKey)
 

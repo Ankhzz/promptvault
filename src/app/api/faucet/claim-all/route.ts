@@ -133,9 +133,8 @@ export async function POST(request: NextRequest) {
         result.musdcClaimed = true
         result.amounts.musdc = MUSDC_CONFIG.faucetAmount
         await recordFaucetClaim(walletAddress.toLowerCase(), { musdc: true })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'MUSDC transfer failed'
-        return NextResponse.json({ error: msg }, { status: 500 })
+      } catch {
+        return NextResponse.json({ error: 'MUSDC transfer failed' }, { status: 500 })
       }
     }
 
@@ -163,25 +162,23 @@ export async function POST(request: NextRequest) {
         result.ipClaimed = true
         result.amounts.ip = '0.01'
         await recordFaucetClaim(walletAddress.toLowerCase(), { ip: true })
-      } catch (err) {
+      } catch {
         if (result.musdcClaimed) {
           return NextResponse.json({
             ok: true,
             musdcTxHash: result.musdcTxHash,
             ipClaimed: false,
-            ipError: err instanceof Error ? err.message : 'IP transfer failed',
+            ipError: 'IP transfer failed',
             amounts: result.amounts,
           })
         }
-        const msg = err instanceof Error ? err.message : 'IP transfer failed'
-        return NextResponse.json({ error: msg }, { status: 500 })
+        return NextResponse.json({ error: 'IP transfer failed' }, { status: 500 })
       }
     }
 
     return NextResponse.json({ ok: true, ...result })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Claim failed' }, { status: 500 })
   }
 }
 
@@ -237,8 +234,7 @@ export async function GET(request: NextRequest) {
       musdcCooldownRemaining,
       ipAmount: '0.01',
     })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Status check failed' }, { status: 500 })
   }
 }
