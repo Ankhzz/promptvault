@@ -1,1 +1,0 @@
-{"version":3,"file":"file-encryption.d.ts","sourceRoot":"","sources":["../src/file-encryption.ts"],"names":[],"mappings":"AAMA;2EAC2E;AAC3E,wBAAgB,WAAW,CAAC,SAAS,EAAE,UAAU,GAAG;IAClD,UAAU,EAAE,UAAU,CAAC;IACvB,GAAG,EAAE,UAAU,CAAC;CACjB,CAWA;AAED;wEACwE;AACxE,wBAAgB,WAAW,CAAC,MAAM,EAAE;IAClC,UAAU,EAAE,UAAU,CAAC;IACvB,GAAG,EAAE,UAAU,CAAC;CACjB,GAAG,UAAU,CAMb"}
