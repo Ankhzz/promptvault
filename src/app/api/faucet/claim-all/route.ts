@@ -61,10 +61,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const faucetPk = process.env.MUSDC_FAUCET_PRIVATE_KEY as Hex | undefined
-    if (!faucetPk) {
+    const rawPk = process.env.MUSDC_FAUCET_PRIVATE_KEY
+    if (!rawPk) {
+      console.error('[faucet] MUSDC_FAUCET_PRIVATE_KEY not set')
       return NextResponse.json({ error: 'Faucet not configured' }, { status: 500 })
     }
+    const normalizedPk = rawPk.trim()
+    const faucetPk = (normalizedPk.startsWith('0x') ? normalizedPk : `0x${normalizedPk}`) as Hex
 
     const faucetAccount = privateKeyToAccount(faucetPk)
     const publicClient = createPublicClient({ transport: http(STORY_CHAIN.rpcUrl) })
@@ -133,7 +136,8 @@ export async function POST(request: NextRequest) {
         result.musdcClaimed = true
         result.amounts.musdc = MUSDC_CONFIG.faucetAmount
         await recordFaucetClaim(walletAddress.toLowerCase(), { musdc: true })
-      } catch {
+      } catch (err) {
+        console.error('[faucet] MUSDC transfer failed:', err)
         return NextResponse.json({ error: 'MUSDC transfer failed' }, { status: 500 })
       }
     }
@@ -162,7 +166,8 @@ export async function POST(request: NextRequest) {
         result.ipClaimed = true
         result.amounts.ip = '0.01'
         await recordFaucetClaim(walletAddress.toLowerCase(), { ip: true })
-      } catch {
+      } catch (err) {
+        console.error('[faucet] IP transfer failed:', err)
         if (result.musdcClaimed) {
           return NextResponse.json({
             ok: true,
@@ -177,7 +182,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, ...result })
-  } catch {
+  } catch (err) {
+    console.error('[faucet] POST outer catch:', err)
     return NextResponse.json({ error: 'Claim failed' }, { status: 500 })
   }
 }
@@ -204,7 +210,9 @@ export async function GET(request: NextRequest) {
           args: [walletAddress as Address],
         })
         musdcBalance = formatUnits(raw, MUSDC_CONFIG.decimals)
-      } catch {}
+      } catch (err) {
+        console.error('[faucet] GET balanceOf failed:', err)
+      }
     }
 
     const lastClaim = await getLastFaucetClaim(walletAddress.toLowerCase())
@@ -223,7 +231,9 @@ export async function GET(request: NextRequest) {
         const faucetAddress = privateKeyToAccount(faucetPk).address
         const raw = await getCachedFaucetIpBalance(faucetAddress as Address)
         faucetIpBalance = formatUnits(raw, 18)
-      } catch {}
+      } catch (err) {
+        console.error('[faucet] GET faucet IP balance failed:', err)
+      }
     }
 
     return NextResponse.json({
@@ -234,7 +244,8 @@ export async function GET(request: NextRequest) {
       musdcCooldownRemaining,
       ipAmount: '0.01',
     })
-  } catch {
+  } catch (err) {
+    console.error('[faucet] GET outer catch:', err)
     return NextResponse.json({ error: 'Status check failed' }, { status: 500 })
   }
 }

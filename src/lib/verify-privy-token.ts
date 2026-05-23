@@ -26,7 +26,8 @@ export async function verifyPrivyToken(token: string): Promise<{ walletAddress: 
     if (!walletAddress) return null
 
     return { walletAddress: walletAddress.toLowerCase() }
-  } catch {
+  } catch (err) {
+    console.error('[verifyPrivyToken] Token verification failed:', err)
     return null
   }
 }
