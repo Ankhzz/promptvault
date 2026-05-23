@@ -37,7 +37,8 @@ const MUSDC_ABI = [
 const getCachedFaucetIpBalance = unstable_cache(
   async (faucetAddress: Address) => {
     const publicClient = createPublicClient({ transport: http(STORY_CHAIN.rpcUrl) })
-    return publicClient.getBalance({ address: faucetAddress })
+    const raw = await publicClient.getBalance({ address: faucetAddress })
+    return raw.toString()
   },
   ['faucet-ip-balance'],
   { revalidate: 60 }
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         args: [faucetAccount.address],
       })
 
-      const claimAmount = BigInt(MUSDC_CONFIG.faucetAmount) * BigInt(10 ** MUSDC_CONFIG.decimals)
+      const claimAmount = BigInt(MUSDC_CONFIG.faucetAmount) * (BigInt(10) ** BigInt(MUSDC_CONFIG.decimals))
 
       if (faucetBalance < claimAmount) {
         return NextResponse.json({ error: 'Faucet MUSDC insufficient balance' }, { status: 503 })
@@ -237,7 +238,7 @@ export async function GET(request: NextRequest) {
       try {
         const faucetAddress = privateKeyToAccount(faucetPk).address
         const raw = await getCachedFaucetIpBalance(faucetAddress as Address)
-        faucetIpBalance = formatUnits(raw, 18)
+        faucetIpBalance = raw ? formatUnits(BigInt(raw), 18) : null
       } catch (err) {
         console.error('[faucet] GET faucet IP balance failed:', err)
       }
