@@ -12,14 +12,14 @@ function isAllowedCspHost(host: string): boolean {
 }
 
 const SECURITY_HEADERS: Record<string, string> = {
-  'X-Frame-Options': 'DENY',
+  'X-Frame-Options': 'SAMEORIGIN',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'X-DNS-Prefetch-Control': 'on',
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   'X-XSS-Protection': '0',
-  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
   'Cross-Origin-Resource-Policy': 'same-site',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
@@ -54,7 +54,7 @@ function getCsp(host: string): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self' https://auth.privy.io https://widget.privy.io",
     `report-uri ${isDev ? 'http' : 'https'}://${safeHost}/api/csp-report`,
   ]
 
