@@ -78,6 +78,8 @@ export default function VaultDetailPage() {
   const [decryptedObjectUrl, setDecryptedObjectUrl] = useState<string | null>(null)
   const [decryptError, setDecryptError] = useState<string | null>(null)
   const isDecryptingRef = useRef(false)
+  const purchasingRef = useRef(false)
+  const retryingFinalizeRef = useRef(false)
 
   const [hasPurchased, setHasPurchased] = useState(false)
   const [confirmingPurchase, setConfirmingPurchase] = useState(false)
@@ -128,7 +130,11 @@ export default function VaultDetailPage() {
   }, [uuid, address])
 
   useEffect(() => {
-    setHasSessionKey(!!(address && sessionStorage.getItem(sessionKey(uuid, address))))
+    try {
+      setHasSessionKey(!!(address && sessionStorage.getItem(sessionKey(uuid, address))))
+    } catch {
+      setHasSessionKey(false)
+    }
   }, [uuid, address])
 
   useEffect(() => {
@@ -145,7 +151,12 @@ export default function VaultDetailPage() {
       return
     }
 
-    let keyHex = address ? sessionStorage.getItem(sessionKey(uuid, address)) : null
+    let keyHex: string | null = null
+    try {
+      keyHex = address ? sessionStorage.getItem(sessionKey(uuid, address)) : null
+    } catch {
+      keyHex = null
+    }
 
     if (!keyHex && address) {
       try {
@@ -187,9 +198,13 @@ export default function VaultDetailPage() {
           }
 
           if (keyHex) {
-            sessionStorage.setItem(sessionKey(uuid, address), keyHex)
-            setHasSessionKey(true)
-            addToast({ title: 'Data key recovered from backup!', variant: 'accent' })
+            try {
+              sessionStorage.setItem(sessionKey(uuid, address), keyHex)
+              setHasSessionKey(true)
+              addToast({ title: 'Data key recovered from backup!', variant: 'accent' })
+            } catch {
+              addToast({ title: 'Key recovered but session storage unavailable', description: 'Proceeding without cache', variant: 'warning' })
+            }
           }
         }
       } catch {
@@ -255,6 +270,7 @@ export default function VaultDetailPage() {
   }, [decryptedFile, decryptedObjectUrl])
 
   const handlePurchase = useCallback(async () => {
+    if (purchasingRef.current) return
     if (!vault || !address) return
 
     if (hasPurchased && buyerLicenseTokenId) {
@@ -273,6 +289,8 @@ export default function VaultDetailPage() {
 
     const wallet = wallets[0]
     if (!wallet) return
+
+    purchasingRef.current = true
 
     const priceMusdc = vault.priceMusdc
     const hasMusdcPrice = !!priceMusdc && Number(priceMusdc) > 0
@@ -394,11 +412,15 @@ export default function VaultDetailPage() {
         setPurchaseStep('mint_failed')
         addToast({ title: 'Purchase failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
       }
+    } finally {
+      purchasingRef.current = false
     }
   }, [vault, address, hasPurchased, buyerLicenseTokenId, mintTxHash, mintReady, mintLicenseToken, addToast, router, wallets])
 
   const handleRetryFinalize = useCallback(async () => {
+    if (retryingFinalizeRef.current) return
     if (!vault || !address || !buyerLicenseTokenId || !mintTxHash) return
+    retryingFinalizeRef.current = true
     try {
       setPurchaseStep('finalizing')
       addToast({ title: 'Retrying finalize...', variant: 'default' })
@@ -413,6 +435,8 @@ export default function VaultDetailPage() {
     } catch {
       setPurchaseStep('finalize_failed')
       addToast({ title: 'DB save failed again', description: 'License token is minted. Try again later.', variant: 'destructive' })
+    } finally {
+      retryingFinalizeRef.current = false
     }
   }, [vault, address, buyerLicenseTokenId, mintTxHash, addToast, router])
 

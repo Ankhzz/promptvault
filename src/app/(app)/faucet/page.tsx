@@ -30,6 +30,7 @@ export default function FaucetPage() {
 
   const [status, setStatus] = useState<FaucetStatus | null>(null)
   const [claiming, setClaiming] = useState(false)
+  const claimingRef = useRef(false)
   const [lastResult, setLastResult] = useState<{
     musdcTxHash?: string
     ipTxHash?: string
@@ -67,7 +68,8 @@ export default function FaucetPage() {
   }, [cooldownMs])
 
   const handleClaim = async () => {
-    if (!address || claiming) return
+    if (!address || claimingRef.current) return
+    claimingRef.current = true
     setClaiming(true)
     setLastResult(null)
     try {
@@ -104,6 +106,7 @@ export default function FaucetPage() {
     } catch {
       addToast({ title: 'Claim failed', description: 'Network error', variant: 'destructive' })
     } finally {
+      claimingRef.current = false
       setClaiming(false)
     }
   }

@@ -119,13 +119,13 @@ export default function CreateVaultPage() {
       return
     }
 
+    isRunningRef.current = true
     const clients = await getClients()
     if (!clients) {
+      isRunningRef.current = false
       addToast({ title: 'Wallet not connected', variant: 'destructive' })
       return
     }
-
-    isRunningRef.current = true
 
     // Lighthouse API key is checked server-side on the upload API route
 
@@ -144,8 +144,9 @@ export default function CreateVaultPage() {
     } catch (err) {
       const parsed = parseTxError(err)
       setStep('idle')
-      isRunningRef.current = false
       addToast({ title: parsed.title, description: parsed.description, variant: parsed.variant })
+    } finally {
+      isRunningRef.current = false
     }
   }, [name, vaultType, unlockTime, priceMusdc, getClients, addToast, selectedFile])
 
