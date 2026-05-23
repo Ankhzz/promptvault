@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       console.error('[faucet] 401 No session — no cookie ni Authorization header')
       return NextResponse.json({ error: 'No session' }, { status: 401 })
     }
+    console.error('[faucet] token recibido, verificando... appId:', process.env.NEXT_PUBLIC_PRIVY_APP_ID?.slice(0, 10) + '...')
     const session = await verifyPrivyToken(privyToken)
     if (!session) {
       console.error('[faucet] 401 Unauthorized — verifyPrivyToken returned null (token inválido)')

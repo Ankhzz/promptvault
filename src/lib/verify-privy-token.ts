@@ -17,13 +17,33 @@ const getVerifier = (() => {
 
 export async function verifyPrivyToken(token: string): Promise<{ walletAddress: string } | null> {
   try {
-    const verified = await getVerifier().verifyAuthToken(token)
-    if (!verified?.userId) return null
+    const verifier = getVerifier()
+    console.error('[verifyPrivyToken] appId used:', process.env.NEXT_PUBLIC_PRIVY_APP_ID?.slice(0, 10) + '...')
+    console.error('[verifyPrivyToken] token prefix:', token?.slice(0, 20) + '...')
+
+    const verified = await verifier.verifyAuthToken(token)
+
+    if (!verified) {
+      console.error('[verifyPrivyToken] verifyAuthToken returned null')
+      return null
+    }
+    if (!verified.userId) {
+      console.error('[verifyPrivyToken] verifyAuthToken returned object without userId, keys:', Object.keys(verified))
+      return null
+    }
 
     // Token cryptographically verified; decode payload for wallet address
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+    const tokenParts = token.split('.')
+    if (tokenParts.length < 2) {
+      console.error('[verifyPrivyToken] token has no payload part')
+      return null
+    }
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
     const walletAddress = payload?.wallet?.address
-    if (!walletAddress) return null
+    if (!walletAddress) {
+      console.error('[verifyPrivyToken] no wallet address in payload, payload keys:', Object.keys(payload || {}))
+      return null
+    }
 
     return { walletAddress: walletAddress.toLowerCase() }
   } catch (err) {
