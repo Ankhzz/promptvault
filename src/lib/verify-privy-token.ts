@@ -17,31 +17,25 @@ const getVerifier = (() => {
 
 export async function verifyPrivyToken(token: string): Promise<{ walletAddress: string } | null> {
   try {
-    const verifier = getVerifier()
-    console.error('[verifyPrivyToken] appId used:', process.env.NEXT_PUBLIC_PRIVY_APP_ID?.slice(0, 10) + '...')
-    console.error('[verifyPrivyToken] token prefix:', token?.slice(0, 20) + '...')
-
-    const verified = await verifier.verifyAuthToken(token)
-
-    if (!verified) {
-      console.error('[verifyPrivyToken] verifyAuthToken returned null')
-      return null
-    }
-    if (!verified.userId) {
-      console.error('[verifyPrivyToken] verifyAuthToken returned object without userId, keys:', Object.keys(verified))
+    const client = getVerifier()
+    const verified = await client.verifyAuthToken(token)
+    if (!verified?.userId) {
       return null
     }
 
-    // Token cryptographically verified; decode payload for wallet address
-    const tokenParts = token.split('.')
-    if (tokenParts.length < 2) {
-      console.error('[verifyPrivyToken] token has no payload part')
+    let user
+    try {
+      user = await client.getUser(verified.userId)
+    } catch (err) {
+      console.error('[verifyPrivyToken] Privy API getUser failed:', err)
       return null
     }
-    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
-    const walletAddress = payload?.wallet?.address
+
+    const linkedWallet = user?.linkedAccounts?.find(
+      (a: any) => a.type === 'wallet' || a.type === 'smart_wallet',
+    )
+    const walletAddress = linkedWallet?.address
     if (!walletAddress) {
-      console.error('[verifyPrivyToken] no wallet address in payload, payload keys:', Object.keys(payload || {}))
       return null
     }
 
