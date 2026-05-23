@@ -21,7 +21,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   'X-XSS-Protection': '0',
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
   'Cross-Origin-Resource-Policy': 'same-site',
-  'Cross-Origin-Embedder-Policy': 'credentialless',
+  'Cross-Origin-Embedder-Policy': 'unsafe-none',
 }
 
 // Best-effort in-memory rate limiter (per-edge-worker, not global on Vercel).
@@ -50,7 +50,7 @@ function getCsp(host: string): string {
     "style-src 'self' 'unsafe-inline' https://api.fontshare.com https://fonts.googleapis.com",
     "font-src 'self' https://api.fontshare.com https://cdn.fontshare.com https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "frame-src https://widget.privy.io https://auth.privy.io",
+    "frame-src 'self' https://widget.privy.io https://auth.privy.io about: blob: data:",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
