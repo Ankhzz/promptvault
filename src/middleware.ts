@@ -117,11 +117,11 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next()
 
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-    response.headers.set(key, value)
-  }
-
-  response.headers.set('Content-Security-Policy', getCsp(request.headers.get('host') || 'localhost:3000'))
+  // DIAGNÓSTICO: comentado temporalmente para descartar CSP/headers como causa del chrome-error
+  // for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+  //   response.headers.set(key, value)
+  // }
+  // response.headers.set('Content-Security-Policy', getCsp(request.headers.get('host') || 'localhost:3000'))
 
   return response
 }
