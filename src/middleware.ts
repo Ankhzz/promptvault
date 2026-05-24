@@ -81,14 +81,14 @@ function getCsp(host: string): string {
   if (isDev) {
     return [
       ...base,
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval'",
       `connect-src ${connectSrc.join(' ')}`,
     ].join('; ')
   }
 
   return [
     ...base,
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
     `connect-src ${connectSrc.join(' ')}`,
   ].join('; ')
 }
