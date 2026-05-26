@@ -47,8 +47,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ cid: result.data.Hash })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Upload failed'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch (error) {
+    console.error('ERROR_DETAILED:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : typeof error,
+    })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed' }, { status: 500 })
   }
 }
