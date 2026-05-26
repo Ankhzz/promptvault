@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       'image/png', 'image/jpeg', 'image/gif', 'image/webp',
       'application/pdf',
       'text/plain',
+      'application/octet-stream',
     ])
     if (!ALLOWED_TYPES.has(file.type) && file.type !== '') {
       return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
