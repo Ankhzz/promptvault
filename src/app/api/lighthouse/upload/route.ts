@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyPrivyToken } from '@/lib/verify-privy-token'
 
 export async function POST(request: NextRequest) {
+  console.log('DEBUG_START:', { hasVerify: typeof verifyPrivyToken, envKeys: Object.keys(process.env).filter(k => k.includes('PRIVY') || k.includes('LIGHTHOUSE') || k === 'DATABASE_URL') })
   try {
     const privyToken = request.cookies.get('privy-token')?.value
     if (!privyToken) {
