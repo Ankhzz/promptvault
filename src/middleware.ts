@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_ROUTES = ['/create', '/unlock', '/activity']
+const PROTECTED_ROUTES = ['/unlock', '/activity']
 
 const CSP_ALLOWED_HOSTS = new Set([
   'promptvaultcdr.vercel.app',
@@ -91,6 +91,10 @@ function getCsp(host: string): string {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  if (pathname === '/create') {
+    console.log('[middleware] /create cookies:', JSON.stringify(request.cookies.getAll()))
+  }
 
   const isProtected = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/'),
