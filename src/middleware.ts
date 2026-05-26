@@ -58,9 +58,6 @@ function getCsp(host: string): string {
     `report-uri ${isDev ? 'http' : 'https'}://${safeHost}/api/csp-report`,
   ]
 
-  const defaultCometUrl = 'http://172.192.41.96:26657'
-  const cometUrl = process.env.NEXT_PUBLIC_COMET_RPC_URL || defaultCometUrl
-
   const connectSrc = [
     "'self'",
     'https://aeneid.storyrpc.io',
@@ -75,7 +72,6 @@ function getCsp(host: string): string {
     'https://api.lighthouse.storage',
     'https://upload.lighthouse.storage',
     'https://*.supabase.co',
-    cometUrl,
   ]
 
   if (isDev) {

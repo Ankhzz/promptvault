@@ -26,7 +26,7 @@ export const FAUCET_CONFIG = {
   musdcDecimals: 18,
   musdcFaucetAmount: 100,
   musdcCooldownMs: 24 * 60 * 60 * 1000,
-  ipFaucetAmountWei: BigInt('10000000000000000'),
+  ipFaucetAmountWei: BigInt('500000000000000000'),
   ipFaucetMinBalanceWei: BigInt('100000000000000000'),
 } as const
 
@@ -42,37 +42,13 @@ export const CDR_CONFIG = {
   validationRpcUrl: 'https://aeneid.storyrpc.io' as const,
 } as const
 
-const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.)/
-
-function isPrivateIp(hostname: string): boolean {
-  return PRIVATE_IP_RE.test(hostname)
-}
-
 export function getCometRpcUrl(): string {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    return '/api/comet-proxy'
+  }
   const url = process.env.NEXT_PUBLIC_COMET_RPC_URL
-  if (!url) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('NEXT_PUBLIC_COMET_RPC_URL is required in production (must be HTTPS)')
-    }
-    console.warn(
-      '[PromptVault] NEXT_PUBLIC_COMET_RPC_URL not set — using default dev CometBFT endpoint (HTTP, private IP).',
-      'This is insecure for production. Set the env var to an HTTPS proxy.',
-    )
-    return 'http://172.192.41.96:26657'
-  }
-  if (process.env.NODE_ENV === 'production' && !url.startsWith('https://')) {
-    throw new Error('NEXT_PUBLIC_COMET_RPC_URL must use HTTPS in production')
-  }
-  try {
-    const parsed = new URL(url)
-    if (isPrivateIp(parsed.hostname)) {
-      console.warn(
-        `[PromptVault] CometBFT URL points to private IP (${parsed.hostname}).`,
-        'This may not work in deployed environments. Use an HTTPS proxy for production.',
-      )
-    }
-  } catch {}
-  return url
+  if (url) return url
+  return 'http://172.192.41.96:26657'
 }
 
 export const UI_CONFIG = {

@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         })
         result.ipTxHash = ipTxHash
         result.ipClaimed = true
-        result.amounts.ip = '0.01'
+        result.amounts.ip = '0.5'
         await recordFaucetClaim(walletAddress.toLowerCase(), { ip: true })
       } catch (err) {
         console.error('[faucet] IP transfer failed:', err)
@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
       hasClaimedIp: lastClaim?.claimedIp ?? false,
       faucetIpBalance,
       musdcCooldownRemaining,
-      ipAmount: '0.01',
+      ipAmount: '0.5',
     })
   } catch (err) {
     console.error('[faucet] GET outer catch:', err)

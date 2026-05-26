@@ -99,7 +99,7 @@ export default function FaucetPage() {
 
       const parts: string[] = []
       if (data.musdcClaimed) parts.push('+100 MUSDC')
-      if (data.ipClaimed) parts.push('+0.01 IP')
+      if (data.ipClaimed) parts.push('+0.5 IP')
       if (parts.length > 0) {
         addToast({ title: 'Claimed!', description: parts.join(' · '), variant: 'accent' })
       }
@@ -150,7 +150,7 @@ export default function FaucetPage() {
               </div>
               <CardDescription>
                 {ipReady
-                  ? 'Claim your Starter Kit: 100 MUSDC + 0.01 IP (one-time)'
+                  ? 'Claim your Starter Kit: 100 MUSDC + 0.5 IP (one-time)'
                   : 'Claim daily MUSDC — 24h cooldown between claims'}
               </CardDescription>
             </CardHeader>
@@ -175,7 +175,7 @@ export default function FaucetPage() {
                     </p>
                   </div>
                   <Badge variant={status?.hasClaimedIp ? 'success' : 'accent'} dot>
-                    {status?.hasClaimedIp ? '0.01 IP' : 'One-time'}
+                    {status?.hasClaimedIp ? '0.5 IP' : 'One-time'}
                   </Badge>
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function FaucetPage() {
               <div className="rounded-[6px] border border-accent/30 bg-accent-muted px-4 py-3">
                 <p className="text-sm text-muted">
                   <span className="font-medium text-accent">100 MUSDC</span> / 24h ·{' '}
-                  <span className="font-medium text-accent">0.01 IP</span> one-time · Aeneid Testnet
+                  <span className="font-medium text-accent">0.5 IP</span> one-time · Aeneid Testnet
                 </p>
               </div>
             </CardContent>
@@ -260,7 +260,7 @@ export default function FaucetPage() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { num: '1', title: 'Claim Starter Kit', desc: 'Get 100 MUSDC (daily) + 0.01 IP for gas (one-time)' },
+                  { num: '1', title: 'Claim Starter Kit', desc: 'Get 100 MUSDC (daily) + 0.5 IP for gas (one-time)' },
                   { num: '2', title: 'Create Licensed Vaults', desc: 'Register IP assets, set a MUSDC price, encrypt content via CDR' },
                   { num: '3', title: 'Buy & Unlock Content', desc: 'Pay MUSDC via Marketplace, mint license token, decrypt via CDR' },
                   { num: '4', title: 'Need More IP?', desc: 'Use the official Story Foundation faucet for additional gas tokens' },
