@@ -8,6 +8,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'your-privy-app-id'}
       config={{
         loginMethods: ['email', 'google', 'github', 'wallet'],
+        useServerCookies: false,
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },
