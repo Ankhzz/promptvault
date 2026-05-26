@@ -84,7 +84,7 @@ function getCsp(host: string): string {
 
   return [
     ...base,
-    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval'",
     `connect-src ${connectSrc.join(' ')}`,
   ].join('; ')
 }
