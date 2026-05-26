@@ -6,9 +6,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'your-privy-app-id'}
+      useServerCookies={false}
       config={{
         loginMethods: ['email', 'google', 'github', 'wallet'],
-        useServerCookies: false,
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },
