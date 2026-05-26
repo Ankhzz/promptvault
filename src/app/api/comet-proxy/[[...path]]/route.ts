@@ -22,6 +22,7 @@ async function proxy(req: NextRequest, path: string[]) {
     method: req.method,
     headers,
     body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body,
+    // @ts-expect-error - duplex required for streaming body; not in TS types yet
     duplex: 'half',
   })
 
