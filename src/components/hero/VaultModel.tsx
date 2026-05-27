@@ -41,6 +41,8 @@ export function VaultModel() {
     groupRef.current.rotation.x += (targetX - groupRef.current.rotation.x) * delta * 1.8
 
     groupRef.current.position.y = Math.sin(t * 0.4) * 0.03
+
+    accentMat.emissiveIntensity = 0.2 + Math.sin(t * 0.5) * 0.05
   })
 
   const bodyMat = new THREE.MeshPhysicalMaterial({
