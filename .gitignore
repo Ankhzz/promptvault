@@ -52,6 +52,9 @@ external/
 # opencode agent skills (local config)
 .agents/
 
+# project docs (internal — only litepaper lives at root)
+_project/
+
 # local DB (SQLite)
 promptvault.db
 

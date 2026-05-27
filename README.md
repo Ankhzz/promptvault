@@ -233,7 +233,7 @@ Full instructions in `_project/db-migration.md`.
 ## Links
 
 - **Live App** — [promptvaultcdr.vercel.app](https://promptvaultcdr.vercel.app)
-- **Litepaper** — [`_project/funcionamiento.md`](https://github.com/Ankhzz/promptvault/blob/main/_project/funcionamiento.md) (architecture, flows, security, FAQ)
+- **Litepaper** — [litepaper.md](litepaper.md) (architecture, flows, security, FAQ)
 - **Story Protocol** — [story.foundation](https://story.foundation)
 - **CDR SDK Docs** — [docs.story.foundation/developers/cdr-sdk/overview](https://docs.story.foundation/developers/cdr-sdk/overview)
 - **Aeneid Explorer** — [aeneid.storyscan.xyz](https://aeneid.storyscan.xyz)
