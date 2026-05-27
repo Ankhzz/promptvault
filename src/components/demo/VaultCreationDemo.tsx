@@ -54,10 +54,10 @@ export function VaultCreationDemo() {
     }
 
     const phaseTimers = [
-      setTimeout(() => setAccessPhase(1), 1500),
-      setTimeout(() => setAccessPhase(2), 3000),
-      setTimeout(() => setAccessPhase(3), 4500),
-      setTimeout(() => setAccessPhase(4), 5500),
+      setTimeout(() => setAccessPhase(1), 2000),
+      setTimeout(() => setAccessPhase(2), 4000),
+      setTimeout(() => setAccessPhase(3), 6000),
+      setTimeout(() => setAccessPhase(4), 7500),
     ]
 
     return () => phaseTimers.forEach(clearTimeout)
@@ -68,7 +68,7 @@ export function VaultCreationDemo() {
 
     clearTimer()
 
-    const durations = [3500, 4000, 3500, 7000]
+    const durations = [3500, 4000, 3500, 10000]
     timerRef.current = setTimeout(
       () => setStep((s) => (s < 3 ? (s + 1) as Step : 0 as Step)),
       durations[step],
