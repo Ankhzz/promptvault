@@ -27,24 +27,52 @@ const KEYFRAMES: Keyframe[] = [
 
 const CYCLE_MS = 8000
 
-function getProgress(cycleT: number): number {
+type TimelineState = {
+  progress: number
+  activeNode: number | null
+  passedNodes: boolean[]
+}
+
+const NODE_TIMES = [
+  { arrival: 0, departure: 0 },
+  { arrival: 1200, departure: 1200 },
+  { arrival: 2400, departure: 2800 },
+  { arrival: 3900, departure: 3900 },
+  { arrival: 5100, departure: 5900 },
+  { arrival: 7100, departure: 7800 },
+]
+
+function getTimelineState(cycleT: number): TimelineState {
+  let progress = 1.0
   for (let i = 1; i < KEYFRAMES.length; i++) {
     if (cycleT <= KEYFRAMES[i].t) {
       const k0 = KEYFRAMES[i - 1]
       const k1 = KEYFRAMES[i]
       const seg = (cycleT - k0.t) / (k1.t - k0.t)
       const eased = k1.ease === 'ease-in' ? seg * seg * seg : seg
-      return k0.p + (k1.p - k0.p) * eased
+      progress = k0.p + (k1.p - k0.p) * eased
+      break
     }
   }
-  return 1.0
+
+  let activeNode: number | null = null
+  const passedNodes = NODE_TIMES.map((nt) => cycleT >= nt.departure)
+  const pausedIdx = NODE_TIMES.findIndex(
+    (nt) => cycleT >= nt.arrival && cycleT < nt.departure,
+  )
+  if (pausedIdx >= 0) activeNode = pausedIdx
+
+  return { progress, activeNode, passedNodes }
 }
 
 export function TheFlow() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cycleT, setCycleT] = useState(0)
+  const [timeline, setTimeline] = useState<TimelineState>({
+    progress: 0,
+    activeNode: null,
+    passedNodes: NODES.map(() => false),
+  })
   const startRef = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -58,8 +86,7 @@ export function TheFlow() {
           setVisible(true)
         } else {
           setVisible(false)
-          setProgress(0)
-          setCycleT(0)
+          setTimeline({ progress: 0, activeNode: null, passedNodes: NODES.map(() => false) })
         }
       },
       { threshold: 0.35 },
@@ -71,8 +98,7 @@ export function TheFlow() {
 
   useEffect(() => {
     if (!visible) {
-      setProgress(0)
-      setCycleT(0)
+      setTimeline({ progress: 0, activeNode: null, passedNodes: NODES.map(() => false) })
       return
     }
 
@@ -81,25 +107,13 @@ export function TheFlow() {
     intervalRef.current = setInterval(() => {
       const elapsed = performance.now() - startRef.current
       const cycleT = elapsed % CYCLE_MS
-      setProgress(getProgress(cycleT))
-      setCycleT(cycleT)
+      setTimeline(getTimelineState(cycleT))
     }, 30)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [visible])
-
-  const ARRIVAL = [0, 1200, 2400, 3900, 5100, 7100]
-  const DEPARTURE = [0, 1200, 2800, 3900, 5900, 7800]
-  const LEAD = 80
-  const LAG = 60
-
-  const getNodeState = (index: number): 'pending' | 'active' | 'passed' => {
-    if (cycleT >= DEPARTURE[index] + LAG) return 'passed'
-    if (cycleT >= ARRIVAL[index] - LEAD) return 'active'
-    return 'pending'
-  }
 
   return (
     <section ref={sectionRef} className="py-[80px]">
@@ -119,19 +133,22 @@ export function TheFlow() {
             <div className="absolute inset-x-0 top-[6px] h-px bg-border" />
             <div
               className="absolute left-0 top-[6px] h-px bg-accent/60 transition-none"
-              style={{ width: `${progress * 100}%` }}
+              style={{ width: `${timeline.progress * 100}%` }}
             />
 
             {/* Encrypted pulse */}
             <div
               className="absolute top-[6px] w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)] z-10"
-              style={{ left: `${progress * 100}%` }}
+              style={{ left: `${timeline.progress * 100}%` }}
             />
 
             {/* Nodes */}
             <div className="flex justify-between relative z-[1]">
               {NODES.map((node, i) => {
-                const state = getNodeState(i)
+                const state: 'active' | 'passed' | 'pending' =
+                  timeline.activeNode === i ? 'active'
+                  : timeline.passedNodes[i] ? 'passed'
+                  : 'pending'
                 return (
                   <div key={node.label} className="flex flex-col items-center gap-1.5">
                     <div
