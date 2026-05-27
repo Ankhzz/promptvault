@@ -44,6 +44,7 @@ export function TheFlow() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [cycleT, setCycleT] = useState(0)
   const startRef = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -58,6 +59,7 @@ export function TheFlow() {
         } else {
           setVisible(false)
           setProgress(0)
+          setCycleT(0)
         }
       },
       { threshold: 0.35 },
@@ -70,6 +72,7 @@ export function TheFlow() {
   useEffect(() => {
     if (!visible) {
       setProgress(0)
+      setCycleT(0)
       return
     }
 
@@ -79,6 +82,7 @@ export function TheFlow() {
       const elapsed = performance.now() - startRef.current
       const cycleT = elapsed % CYCLE_MS
       setProgress(getProgress(cycleT))
+      setCycleT(cycleT)
     }, 30)
 
     return () => {
@@ -86,10 +90,15 @@ export function TheFlow() {
     }
   }, [visible])
 
+  const ARRIVAL = [0, 1200, 2400, 3900, 5100, 7100]
+  const DEPARTURE = [0, 1200, 2800, 3900, 5900, 7800]
+  const LEAD = 80
+  const LAG = 60
+
   const getNodeState = (index: number): 'pending' | 'active' | 'passed' => {
-    const center = index / (NODES.length - 1)
-    if (Math.abs(progress - center) < 0.03) return 'active'
-    return progress > center ? 'passed' : 'pending'
+    if (cycleT >= DEPARTURE[index] + LAG) return 'passed'
+    if (cycleT >= ARRIVAL[index] - LEAD) return 'active'
+    return 'pending'
   }
 
   return (
