@@ -1,17 +1,46 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RoundedBox, Cylinder, Torus } from '@react-three/drei'
 import * as THREE from 'three'
 
 export function VaultModel() {
   const groupRef = useRef<THREE.Group>(null)
+  const mouseRef = useRef({ x: 0, y: 0 })
+  const isDesktop = useRef(true)
 
-  useFrame((_, delta) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.25
+  useEffect(() => {
+    isDesktop.current = !('ontouchstart' in window)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDesktop.current) return
+      mouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2
+      mouseRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2
     }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  useFrame((state, delta) => {
+    if (!groupRef.current) return
+
+    const t = state.clock.elapsedTime
+
+    const idleY = 0.3 + Math.sin(t * 0.3) * 0.02
+    const idleX = 0.15 + Math.sin(t * 0.2 + 0.5) * 0.015
+
+    const parallaxY = mouseRef.current.x * 0.015
+    const parallaxX = mouseRef.current.y * 0.012
+
+    const targetY = idleY + parallaxY
+    const targetX = idleX + parallaxX
+
+    groupRef.current.rotation.y += (targetY - groupRef.current.rotation.y) * delta * 1.8
+    groupRef.current.rotation.x += (targetX - groupRef.current.rotation.x) * delta * 1.8
+
+    groupRef.current.position.y = Math.sin(t * 0.4) * 0.03
   })
 
   const bodyMat = new THREE.MeshPhysicalMaterial({
