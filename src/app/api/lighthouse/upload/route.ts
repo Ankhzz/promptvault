@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
     }
     console.log('[lighthouse] apiKey present, length:', apiKey.length)
 
+    console.log('[lighthouse] testing connectivity...')
+    const testRes = await fetch('https://httpbin.org/anything', { method: 'GET', signal: AbortSignal.timeout(10_000) })
+    console.log('[lighthouse] test fetch OK, status:', testRes.status)
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     if (!file) {
