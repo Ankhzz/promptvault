@@ -134,19 +134,19 @@ export default function LandingPage() {
                 {
                   step: '01',
                   title: 'Create a Vault',
-                  description: 'Choose your vault type — licensed, private, or time-locked. Your content is encrypted client-side with a random 256-bit data key.',
+                  description: 'Choose a vault type — Licensed, Private, or Time-Locked. Encryption happens on your device before anything hits the network.',
                   icon: VaultIcon,
                 },
                 {
                   step: '02',
                   title: 'Encrypt & Protect',
-                  description: 'The data key is threshold-encrypted to the CDR validator network. On-chain conditions enforce who can request decryption.',
+                  description: 'The key is split across CDR validators. On-chain rules decide who can request access.',
                   icon: ShieldIcon,
                 },
                 {
                   step: '03',
                   title: 'Gate & License',
-                  description: 'License tokens, EOA ownership, or on-chain timestamps control access. Authorized users recover the data key via CDR.',
+                  description: 'License tokens, wallet ownership, or unlock timestamps gate the recovery. Only authorized users can reconstruct the key.',
                   icon: KeyIcon,
                 },
               ].map(({ step, title, description, icon: Icon }) => (
@@ -188,13 +188,13 @@ export default function LandingPage() {
                   icon: LockIcon,
                   title: 'Private Vaults',
                   description: 'Owner-only EOA access. No IP registration, no license tokens. Maximum privacy — only your wallet can decrypt.',
-                  tags: ['Owner-Only', 'No IP Registration', 'EOA Gated'],
+                  tags: ['Wallet Gated', 'No IP Registration', 'EOA Gated'],
                 },
                 {
                   icon: ClockIcon,
                   title: 'Time-Locked Vaults',
                   description: 'On-chain smart contract enforces an unlock timestamp. Anyone can access after the deadline — perfect for scheduled releases.',
-                  tags: ['Smart Contract', 'Timestamp Gated', 'Public After'],
+                  tags: ['Smart Contract', 'Timestamp Gated', 'Public Release'],
                 },
               ].map(({ icon: Icon, title, description, tags }) => (
                 <div
@@ -223,9 +223,9 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[1200px] px-6">
             <div className="rounded-2xl border border-border bg-background p-12">
               <div className="max-w-xl mx-auto text-center space-y-6">
-                <h2 className="font-display text-[56px] leading-[1] tracking-[-0.05em]">
-                  Ready to protect your prompts?
-                </h2>
+                  <h2 className="font-display text-[56px] leading-[1] tracking-[-0.05em]">
+                    Your prompts. Encrypted by default.
+                  </h2>
                 <p className="text-muted text-lg leading-relaxed">
                   Connect your wallet and create your first encrypted vault on the Story Aeneid testnet. It&apos;s free.
                 </p>
