@@ -109,7 +109,7 @@ export function VaultCreationDemo() {
             </div>
 
             {/* Step content — keyed to remount and restart animations */}
-            <div key={step} className="min-h-[160px] animate-fade-in">
+            <div key={step} className="h-[230px] animate-fade-in">
               {step === 0 && (
                 <div className="space-y-6">
                   <div className="flex gap-2">
