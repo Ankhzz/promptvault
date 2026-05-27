@@ -1,5 +1,7 @@
+console.log('[lighthouse] module loading...')
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyPrivyToken } from '@/lib/verify-privy-token'
+console.log('[lighthouse] imports OK')
 
 export async function POST(request: NextRequest) {
   try {
