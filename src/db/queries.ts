@@ -41,6 +41,7 @@ export async function createVaultRecord(data: {
     vaultType: data.vaultType ?? 'licensed',
     status: 'active',
     isForSale: data.priceMusdc ? true : false,
+    price: data.priceMusdc ? Math.round(parseFloat(data.priceMusdc) * 100) : null,
   }).returning()
 
   await db.insert(activity).values({
