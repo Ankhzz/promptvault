@@ -179,11 +179,11 @@ export function TheFlow() {
                           }`
                         }
                       />
-                      <span className="text-xs md:text-sm font-medium text-foreground whitespace-nowrap">
+                      <span className="text-xs md:text-sm font-medium text-foreground">
                         {node.label}
                       </span>
                       {node.sub && (
-                        <span className="hidden md:block text-[10px] md:text-xs text-subtle whitespace-nowrap">
+                        <span className="hidden lg:block text-[10px] md:text-xs text-subtle whitespace-nowrap">
                           {node.sub}
                         </span>
                       )}
