@@ -9,6 +9,8 @@ export function VaultModel() {
   const groupRef = useRef<THREE.Group>(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const isDesktop = useRef(true)
+  const handleRef = useRef<THREE.Group>(null)
+  const twitch = useRef({ nextAt: 24, active: false, startTime: 0, duration: 0.75 })
 
   useEffect(() => {
     isDesktop.current = !('ontouchstart' in window)
@@ -43,6 +45,26 @@ export function VaultModel() {
     groupRef.current.position.y = Math.sin(t * 0.4) * 0.03
 
     accentMat.emissiveIntensity = 0.2 + Math.sin(t * 0.5) * 0.05
+
+    if (!handleRef.current) return
+
+    if (twitch.current.active) {
+      const elapsed = t - twitch.current.startTime
+      const p = elapsed / twitch.current.duration
+      if (p >= 1) {
+        handleRef.current.rotation.z = 0
+        twitch.current.active = false
+        const r = 0.5 + 0.5 * Math.sin(t * 1001)
+        twitch.current.nextAt = t + 18 + r * 12
+      } else {
+        handleRef.current.rotation.z = Math.sin(p * Math.PI) * 0.015
+      }
+    } else if (t >= twitch.current.nextAt) {
+      const r = 0.5 + 0.5 * Math.sin(t * 1001)
+      twitch.current.duration = 0.6 + r * 0.3
+      twitch.current.startTime = t
+      twitch.current.active = true
+    }
   })
 
   const bodyMat = new THREE.MeshPhysicalMaterial({
@@ -112,17 +134,20 @@ export function VaultModel() {
         <primitive object={metalMat} attach="material" />
       </Cylinder>
 
-      {/* Handle bar */}
-      <RoundedBox args={[0.5, 0.06, 0.06]} position={[0, -0.35, 1.02]} radius={0.03} smoothness={4}>
-        <primitive object={metalMat} attach="material" />
-      </RoundedBox>
-
-      {/* Handle grips */}
-      {[-0.22, 0.22].map((x) => (
-        <Cylinder key={`grip-${x}`} args={[0.04, 0.04, 0.1, 12]} position={[x, -0.35, 1.06]} rotation={[0, 0, Math.PI / 2]}>
+      {/* Handle — grouped for micro mechanical twitch */}
+      <group ref={handleRef} position={[0, -0.35, 1.02]}>
+        {/* Handle bar */}
+        <RoundedBox args={[0.5, 0.06, 0.06]} position={[0, 0, 0]} radius={0.03} smoothness={4}>
           <primitive object={metalMat} attach="material" />
-        </Cylinder>
-      ))}
+        </RoundedBox>
+
+        {/* Handle grips */}
+        {[-0.22, 0.22].map((x) => (
+          <Cylinder key={`grip-${x}`} args={[0.04, 0.04, 0.1, 12]} position={[x, 0, 0.04]} rotation={[0, 0, Math.PI / 2]}>
+            <primitive object={metalMat} attach="material" />
+          </Cylinder>
+        ))}
+      </group>
 
       {/* Hinges */}
       {[-0.7, 0, 0.7].map((y, i) => (
