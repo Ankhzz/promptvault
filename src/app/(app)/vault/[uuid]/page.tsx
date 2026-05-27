@@ -696,7 +696,7 @@ export default function VaultDetailPage() {
                 copyId="ipfsCid"
                 onCopy={copyToClipboard}
                 copied={copied}
-                explorerUrl={`https://gateway.lighthouse.storage/ipfs/${vault.ipfsCid}`}
+                explorerUrl={`https://gateway.pinata.cloud/ipfs/${vault.ipfsCid}`}
               />
             )}
             <DetailRow label="CDR UUID" value={String(vault.uuid)} mono />

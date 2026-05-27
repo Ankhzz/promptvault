@@ -68,9 +68,8 @@ function getCsp(host: string): string {
     'https://explorer-api.walletconnect.com',
     'wss://relay.walletconnect.com',
     'wss://www.walletlink.org',
-    'https://gateway.lighthouse.storage',
-    'https://api.lighthouse.storage',
-    'https://upload.lighthouse.storage',
+    'https://gateway.pinata.cloud',
+    'https://api.pinata.cloud',
     'https://*.supabase.co',
   ]
 

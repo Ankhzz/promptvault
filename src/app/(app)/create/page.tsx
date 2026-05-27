@@ -26,7 +26,7 @@ import {
   EIP712_PRIMARY_TYPE,
   buildEIP712Message,
 } from '@/lib/crypto/datakey-encryption'
-import { encryptFile, uploadToLighthouse, type EncryptedFile } from '@/lib/encrypt-file'
+import { encryptFile, uploadToIpfs, type EncryptedFile } from '@/lib/encrypt-file'
 
 type Step = 'idle' | 'register' | 'mint' | 'upload' | 'encrypt_file' | 'encrypt_key' | 'persist' | 'done'
 type VaultType = 'licensed' | 'private' | 'timelocked'
@@ -227,7 +227,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob)
+      ipfsCid = await uploadToIpfs(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 
@@ -335,7 +335,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob)
+      ipfsCid = await uploadToIpfs(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 
@@ -445,7 +445,7 @@ export default function CreateVaultPage() {
       const { encrypted, encryptedBlob } = await encryptFile(selectedFile, dataKey)
       encryptedFileMeta = JSON.stringify(encrypted)
 
-      ipfsCid = await uploadToLighthouse(encryptedBlob)
+      ipfsCid = await uploadToIpfs(encryptedBlob)
       setResult(prev => ({ ...prev, ipfsCid, encryptedFileMeta }))
     }
 

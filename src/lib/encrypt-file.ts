@@ -164,26 +164,34 @@ export async function decryptFileFromBase64(
   })
 }
 
-export async function uploadToLighthouse(blob: Blob): Promise<string> {
+export async function uploadToIpfs(blob: Blob): Promise<string> {
+  const tokenRes = await fetch('/api/lighthouse/upload', { method: 'POST' })
+  if (!tokenRes.ok) {
+    const err = await tokenRes.json().catch(() => ({ error: 'Failed to get upload token' }))
+    throw new Error(err.error || `Token request failed with status ${tokenRes.status}`)
+  }
+  const { jwt } = await tokenRes.json()
+
   const formData = new FormData()
   formData.append('file', blob, 'encrypted.bin')
 
-  const res = await fetch('/api/lighthouse/upload', {
+  const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${jwt}` },
     body: formData,
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Upload failed' }))
-    throw new Error(err.error || `Upload failed with status ${res.status}`)
+    const errText = await res.text().catch(() => '')
+    throw new Error(`Pinata upload failed (${res.status}): ${errText}`)
   }
 
   const data = await res.json()
-  return data.cid as string
+  return data.IpfsHash as string
 }
 
-export async function fetchFromLighthouse(cid: string): Promise<Blob> {
-  const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${cid}`)
+export async function fetchFromIpfs(cid: string): Promise<Blob> {
+  const response = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`)
   if (!response.ok) {
     throw new Error(`Failed to fetch from IPFS: ${response.status}`)
   }
