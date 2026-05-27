@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyPrivyToken } from '@/lib/verify-privy-token'
 
 export async function POST(request: NextRequest) {
-  console.log('DEBUG_START:', { hasVerify: typeof verifyPrivyToken, envKeys: Object.keys(process.env).filter(k => k.includes('PRIVY') || k.includes('LIGHTHOUSE') || k === 'DATABASE_URL') })
   try {
     const privyToken = request.cookies.get('privy-token')?.value
     if (!privyToken) {
@@ -39,20 +38,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
     }
 
-    const lighthouse = await import('@lighthouse-web3/sdk')
-    const result = await lighthouse.uploadBuffer(file, apiKey)
-
-    if (!result?.data?.Hash) {
-      return NextResponse.json({ error: 'Lighthouse upload failed' }, { status: 502 })
+    const body = new FormData()
+    body.set('file', file)
+    const lhResponse = await fetch('https://node.lighthouse.storage/api/v0/add', {
+      method: 'POST',
+      body,
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!lhResponse.ok) {
+      const errBody = await lhResponse.text().catch(() => '')
+      throw new Error(`Lighthouse API error ${lhResponse.status}: ${errBody}`)
+    }
+    const result = await lhResponse.json()
+    if (!result?.Hash) {
+      throw new Error('Lighthouse upload failed: no Hash in response')
     }
 
-    return NextResponse.json({ cid: result.data.Hash })
-  } catch (error) {
-    console.error('ERROR_DETAILED:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : typeof error,
-    })
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed' }, { status: 500 })
+    return NextResponse.json({ cid: result.Hash })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Upload failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
