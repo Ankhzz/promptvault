@@ -47,8 +47,12 @@ const NODE_TIMES = [
   { arrival: 7050, departure: 7750 },
 ]
 
+const LINE_START = NODE_POSITIONS[0]
+const LINE_END = NODE_POSITIONS[NODE_POSITIONS.length - 1]
+const LINE_RANGE = LINE_END - LINE_START
+
 function getTimelineState(cycleT: number): TimelineState {
-  let progress = 1.0
+  let progress = LINE_END
   for (let i = 1; i < KEYFRAMES.length; i++) {
     if (cycleT <= KEYFRAMES[i].t) {
       const k0 = KEYFRAMES[i - 1]
@@ -135,10 +139,13 @@ export function TheFlow() {
         <div className="relative rounded-2xl border border-border bg-background p-8 md:p-10">
           <div className="relative">
             {/* Connecting line — behind nodes */}
-            <div className="absolute inset-x-0 top-[6px] h-px bg-border" />
             <div
-              className="absolute left-0 top-[6px] h-px bg-accent/60 transition-none"
-              style={{ width: `${timeline.progress * 100}%` }}
+              className="absolute top-[6px] h-px bg-border"
+              style={{ left: `${LINE_START * 100}%`, width: `${LINE_RANGE * 100}%` }}
+            />
+            <div
+              className="absolute top-[6px] h-px bg-accent/60 transition-none"
+              style={{ left: `${LINE_START * 100}%`, width: `${Math.max(0, timeline.progress - LINE_START) * 100}%` }}
             />
 
             {/* Encrypted pulse */}
@@ -158,9 +165,9 @@ export function TheFlow() {
                   <div
                     key={node.label}
                     className="absolute"
-                    style={{ left: `${NODE_POSITIONS[i] * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${NODE_POSITIONS[i] * 100}%`, transform: 'translateX(-50%)', top: '0' }}
                   >
-                    <div className="flex flex-col items-center gap-1.5" style={{ width: 'max-content' }}>
+                    <div className="flex flex-col items-center gap-3" style={{ width: 'max-content' }}>
                       <div
                         className={
                           `w-3 h-3 rounded-full border-2 transition-all duration-[var(--transition)] ${
