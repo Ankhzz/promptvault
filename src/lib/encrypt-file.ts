@@ -165,7 +165,7 @@ export async function decryptFileFromBase64(
 }
 
 export async function uploadToIpfs(blob: Blob): Promise<string> {
-  const tokenRes = await fetch('/api/lighthouse/upload', { method: 'POST' })
+  const tokenRes = await fetch('/api/pinata/upload', { method: 'POST' })
   if (!tokenRes.ok) {
     const err = await tokenRes.json().catch(() => ({ error: 'Failed to get upload token' }))
     throw new Error(err.error || `Token request failed with status ${tokenRes.status}`)

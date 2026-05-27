@@ -55,7 +55,7 @@ Full instructions in `_project/db-migration.md`.
 | UI | Tailwind CSS v4 + custom design tokens |
 | 3D | React Three Fiber, Drei, Postprocessing |
 | Database | PostgreSQL via Supabase (Drizzle ORM) |
-| Encrypted Storage | Lighthouse IPFS |
+| Encrypted Storage | Pinata IPFS |
 | CDR SDK | `@piplabs/cdr-sdk` (threshold encryption) |
 | Smart Contracts | Story Protocol Core SDK (IP registration, licensing) |
 | Deployed Contracts | Aeneid testnet |
@@ -67,7 +67,7 @@ Full instructions in `_project/db-migration.md`.
 - A wallet with IP tokens on Story Aeneid testnet ([faucet](https://aeneid.storyscan.xyz/faucet))
 - A Privy account ([dashboard](https://privy.io)) — get your App ID
 - A Supabase project ([dashboard](https://supabase.com)) — for the database
-- A Lighthouse API key ([dashboard](https://files.lighthouse.storage)) — for IPFS storage
+- A Pinata account ([dashboard](https://pinata.cloud)) — for IPFS storage
 
 ## Environment Variables
 
@@ -85,8 +85,8 @@ NEXT_PUBLIC_STORY_RPC_URL=https://aeneid.storyrpc.io
 NEXT_PUBLIC_STORY_CHAIN_ID=1315
 NEXT_PUBLIC_STORY_EXPLORER=https://aeneid.storyscan.xyz
 
-# Lighthouse IPFS Storage
-NEXT_PUBLIC_LIGHTHOUSE_API_KEY=your-lighthouse-api-key
+# Pinata IPFS Storage
+PINATA_JWT=your-pinata-jwt
 
 # CometBFT RPC (dev: HTTP fallback; production: MUST be HTTPS)
 # NEXT_PUBLIC_COMET_RPC_URL=
