@@ -22,12 +22,24 @@ export function VaultModel() {
     }
 
     window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        mouseRef.current = { x: 0, y: 0 }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   useFrame((state, delta) => {
     if (!groupRef.current) return
 
+    const safeDelta = Math.min(delta, 0.033)
     const t = state.clock.elapsedTime
 
     const idleY = 0.3 + Math.sin(t * 0.3) * 0.02
@@ -39,8 +51,8 @@ export function VaultModel() {
     const targetY = idleY + parallaxY
     const targetX = idleX + parallaxX
 
-    groupRef.current.rotation.y += (targetY - groupRef.current.rotation.y) * delta * 1.8
-    groupRef.current.rotation.x += (targetX - groupRef.current.rotation.x) * delta * 1.8
+    groupRef.current.rotation.y += (targetY - groupRef.current.rotation.y) * safeDelta * 1.8
+    groupRef.current.rotation.x += (targetX - groupRef.current.rotation.x) * safeDelta * 1.8
 
     groupRef.current.position.y = Math.sin(t * 0.4) * 0.03
 
