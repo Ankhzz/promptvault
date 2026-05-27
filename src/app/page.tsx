@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePrivy } from '@privy-io/react-auth'
 import { ShieldIcon, KeyIcon, LockIcon, ClockIcon, VaultIcon, ArrowRightIcon } from '@/components/Icons'
 import { VaultCreationDemo } from '@/components/demo/VaultCreationDemo'
+import { TheFlow } from '@/components/demo/TheFlow'
 import { STORY_CHAIN } from '@/lib/constants'
 
 const VaultScene = dynamic(() => import('@/components/hero/VaultScene').then(m => m.VaultScene), {
@@ -115,6 +116,10 @@ export default function LandingPage() {
         <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
 
         <VaultCreationDemo />
+
+        <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
+
+        <TheFlow />
 
         <div className="h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
 
