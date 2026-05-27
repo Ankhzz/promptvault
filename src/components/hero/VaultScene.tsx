@@ -14,8 +14,8 @@ export function VaultScene() {
       >
         <ambientLight intensity={0.3} />
         <directionalLight position={[4, 6, 3]} intensity={2.5} />
-        <directionalLight position={[-3, 2, -2]} intensity={1} color="#3b9eff" />
-        <directionalLight position={[-2, -1, -4]} intensity={0.8} color="#9281f7" />
+        <directionalLight position={[-3, 2, -2]} intensity={0.55} color="#3b9eff" />
+        <directionalLight position={[-2, -1, -4]} intensity={0.5} color="#9281f7" />
         <pointLight position={[0, -2, 2]} intensity={0.4} />
 
         <VaultModel />
