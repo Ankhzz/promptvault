@@ -8,7 +8,7 @@ const NODES = [
   { label: 'Split', sub: 'CDR 3-of-5' },
   { label: 'Store', sub: 'IPFS' },
   { label: 'License', sub: 'Story Protocol' },
-  { label: 'Decrypt', sub: null },
+  { label: 'Authorized Access', sub: null },
 ] as const
 
 export function TheFlow() {
@@ -45,7 +45,7 @@ export function TheFlow() {
     }
 
     startRef.current = performance.now()
-    const DURATION = 6000
+    const DURATION = 8000
 
     intervalRef.current = setInterval(() => {
       const elapsed = performance.now() - startRef.current
