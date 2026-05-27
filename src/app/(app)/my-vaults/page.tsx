@@ -113,11 +113,12 @@ export default function MyVaultsPage() {
 
   const handleEnableSale = useCallback(async (uuid: number) => {
     const raw = priceDraft[uuid]
-    const cents = raw ? parseInt(raw, 10) : 0
-    if (!raw || isNaN(cents) || cents <= 0) {
-      addToast({ title: 'Invalid price', description: 'Enter a positive price in USD cents', variant: 'warning' })
+    const dollars = parseFloat(raw)
+    if (!raw || isNaN(dollars) || dollars <= 0) {
+      addToast({ title: 'Invalid price', description: 'Enter a valid price in USD', variant: 'warning' })
       return
     }
+    const cents = Math.round(dollars * 100)
     if (!address) {
       addToast({ title: 'Wallet not connected', variant: 'destructive' })
       return
@@ -137,11 +138,12 @@ export default function MyVaultsPage() {
 
   const handleEditPrice = useCallback(async (uuid: number) => {
     const raw = priceDraft[uuid]
-    const cents = raw ? parseInt(raw, 10) : 0
-    if (!raw || isNaN(cents) || cents <= 0) {
-      addToast({ title: 'Invalid price', description: 'Enter a positive price in USD cents', variant: 'warning' })
+    const dollars = parseFloat(raw)
+    if (!raw || isNaN(dollars) || dollars <= 0) {
+      addToast({ title: 'Invalid price', description: 'Enter a valid price in USD', variant: 'warning' })
       return
     }
+    const cents = Math.round(dollars * 100)
     if (!address) {
       addToast({ title: 'Wallet not connected', variant: 'destructive' })
       return
@@ -366,7 +368,7 @@ export default function MyVaultsPage() {
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
-                              placeholder="Price (USD cents, e.g. 500)"
+                              placeholder="Price (USD, e.g. 1.98)"
                               value={priceDraft[vault.uuid] ?? ''}
                               onChange={(e) => setPriceDraft(prev => ({ ...prev, [vault.uuid]: e.target.value }))}
                               disabled={isSavingThis}
@@ -386,7 +388,7 @@ export default function MyVaultsPage() {
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  placeholder="New price (USD cents)"
+                  placeholder="New price (USD)"
                   value={priceDraft[vault.uuid] ?? String(vault.price ?? '')}
                   onChange={(e) => setPriceDraft(prev => ({ ...prev, [vault.uuid]: e.target.value }))}
                   disabled={isSavingThis}
