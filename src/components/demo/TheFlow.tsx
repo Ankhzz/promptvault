@@ -11,18 +11,23 @@ const NODES = [
   { label: 'Authorized Access', sub: null },
 ] as const
 
+const NODE_POSITIONS = [0.040, 0.215, 0.390, 0.565, 0.740, 0.915]
+
 type Keyframe = { p: number; t: number; ease?: 'ease-in' }
 
 const KEYFRAMES: Keyframe[] = [
-  { p: 0.0, t: 0 },
-  { p: 0.2, t: 1200 },
-  { p: 0.4, t: 2400 },
-  { p: 0.4, t: 2800 },
-  { p: 0.6, t: 3900 },
-  { p: 0.8, t: 5100 },
-  { p: 0.8, t: 5900 },
-  { p: 1.0, t: 7100, ease: 'ease-in' },
-  { p: 1.0, t: 7800 },
+  { p: NODE_POSITIONS[0], t: 0 },
+  { p: NODE_POSITIONS[0], t: 200 },
+  { p: NODE_POSITIONS[1], t: 1200 },
+  { p: NODE_POSITIONS[1], t: 1450 },
+  { p: NODE_POSITIONS[2], t: 2450 },
+  { p: NODE_POSITIONS[2], t: 2900 },
+  { p: NODE_POSITIONS[3], t: 3900 },
+  { p: NODE_POSITIONS[3], t: 4150 },
+  { p: NODE_POSITIONS[4], t: 5150 },
+  { p: NODE_POSITIONS[4], t: 6050 },
+  { p: NODE_POSITIONS[5], t: 7050, ease: 'ease-in' },
+  { p: NODE_POSITIONS[5], t: 7750 },
 ]
 
 const CYCLE_MS = 8000
@@ -34,12 +39,12 @@ type TimelineState = {
 }
 
 const NODE_TIMES = [
-  { arrival: 0, departure: 0 },
-  { arrival: 1200, departure: 1200 },
-  { arrival: 2400, departure: 2800 },
-  { arrival: 3900, departure: 3900 },
-  { arrival: 5100, departure: 5900 },
-  { arrival: 7100, departure: 7800 },
+  { arrival: 0, departure: 200 },
+  { arrival: 1200, departure: 1450 },
+  { arrival: 2450, departure: 2900 },
+  { arrival: 3900, departure: 4150 },
+  { arrival: 5150, departure: 6050 },
+  { arrival: 7050, departure: 7750 },
 ]
 
 function getTimelineState(cycleT: number): TimelineState {
@@ -143,33 +148,39 @@ export function TheFlow() {
             />
 
             {/* Nodes */}
-            <div className="flex justify-between relative z-[1]">
+            <div className="relative z-[1]">
               {NODES.map((node, i) => {
                 const state: 'active' | 'passed' | 'pending' =
                   timeline.activeNode === i ? 'active'
                   : timeline.passedNodes[i] ? 'passed'
                   : 'pending'
                 return (
-                  <div key={node.label} className="flex flex-col items-center gap-1.5">
-                    <div
-                      className={
-                        `w-3 h-3 rounded-full border-2 transition-all duration-[var(--transition)] ${
-                          state === 'active'
-                            ? 'border-accent bg-accent shadow-[0_0_6px_var(--accent)]'
-                            : state === 'passed'
-                              ? 'border-accent/50 bg-accent/30'
-                              : 'border-border bg-background'
-                        }`
-                      }
-                    />
-                    <span className="text-xs md:text-sm font-medium text-foreground whitespace-nowrap">
-                      {node.label}
-                    </span>
-                    {node.sub && (
-                      <span className="hidden md:block text-[10px] md:text-xs text-subtle whitespace-nowrap">
-                        {node.sub}
+                  <div
+                    key={node.label}
+                    className="absolute"
+                    style={{ left: `${NODE_POSITIONS[i] * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+                  >
+                    <div className="flex flex-col items-center gap-1.5" style={{ width: 'max-content' }}>
+                      <div
+                        className={
+                          `w-3 h-3 rounded-full border-2 transition-all duration-[var(--transition)] ${
+                            state === 'active'
+                              ? 'border-accent bg-accent shadow-[0_0_6px_var(--accent)]'
+                              : state === 'passed'
+                                ? 'border-accent/50 bg-accent/30'
+                                : 'border-border bg-background'
+                          }`
+                        }
+                      />
+                      <span className="text-xs md:text-sm font-medium text-foreground whitespace-nowrap">
+                        {node.label}
                       </span>
-                    )}
+                      {node.sub && (
+                        <span className="hidden md:block text-[10px] md:text-xs text-subtle whitespace-nowrap">
+                          {node.sub}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )
               })}
