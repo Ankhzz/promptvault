@@ -73,7 +73,7 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-lg text-muted leading-[1.6] max-w-xl">
-                  Protect your intellectual property with threshold-encrypted vaults, license-gated access, and on-chain conditions. No single point of failure. No trust required.
+                  Your most valuable AI work should never live exposed. Protect prompts, workflows, and AI assets with threshold-encrypted vaults, license-gated access, and on-chain ownership.
                 </p>
 
                 <div className="flex items-center gap-4 pt-2">
