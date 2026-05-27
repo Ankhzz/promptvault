@@ -40,6 +40,7 @@ export async function createVaultRecord(data: {
     ...data,
     vaultType: data.vaultType ?? 'licensed',
     status: 'active',
+    isForSale: data.priceMusdc ? true : false,
   }).returning()
 
   await db.insert(activity).values({
