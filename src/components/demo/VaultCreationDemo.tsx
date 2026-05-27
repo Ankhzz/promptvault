@@ -51,11 +51,11 @@ export function VaultCreationDemo() {
 
     clearTimer()
 
-    if (step < 3) {
-      timerRef.current = setTimeout(() => setStep((s) => (s + 1) as Step), 3000)
-    } else {
-      timerRef.current = setTimeout(() => setStep(0 as Step), 4000)
-    }
+    const durations = [3500, 4000, 3500, 4500]
+    timerRef.current = setTimeout(
+      () => setStep((s) => (s < 3 ? (s + 1) as Step : 0 as Step)),
+      durations[step],
+    )
 
     return clearTimer
   }, [visible, step, clearTimer])
@@ -79,7 +79,7 @@ export function VaultCreationDemo() {
             </p>
           </div>
 
-          <div className="relative rounded-2xl border border-border bg-background p-8 md:p-10">
+          <div className="relative rounded-2xl border border-border bg-background p-6 md:p-8">
             {/* Secure status indicator */}
             <div className="absolute top-5 right-5 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -92,13 +92,13 @@ export function VaultCreationDemo() {
             </div>
 
             {/* Panel header */}
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <VaultIcon className="h-5 w-5 text-accent" />
               <span className="text-sm font-medium text-foreground">Create a Vault</span>
             </div>
 
             {/* Step indicator bar */}
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <span className="font-mono text-xs text-subtle">
                 {String(step + 1).padStart(2, '0')}
               </span>
@@ -109,7 +109,7 @@ export function VaultCreationDemo() {
             </div>
 
             {/* Step content — keyed to remount and restart animations */}
-            <div key={step} className="min-h-[180px] animate-fade-in">
+            <div key={step} className="min-h-[160px] animate-fade-in">
               {step === 0 && (
                 <div className="space-y-6">
                   <div className="flex gap-2">
@@ -161,9 +161,9 @@ export function VaultCreationDemo() {
                     <p className="text-xs text-subtle mt-0.5">2.4 KB</p>
                   </div>
                   <div className="w-full max-w-[240px] space-y-1.5">
-                    <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                    <div className="h-1 rounded-full bg-border overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-accent"
+                        className="h-full rounded-full bg-accent/60"
                         style={{ animation: 'demo-fill 1.5s ease-out forwards' }}
                       />
                     </div>
@@ -217,7 +217,7 @@ export function VaultCreationDemo() {
             </div>
 
             {/* Step dots */}
-            <div className="flex items-center justify-center gap-2 mt-8">
+            <div className="flex items-center justify-center gap-2 mt-6">
               {[0, 1, 2, 3].map((i) => (
                 <span
                   key={i}
