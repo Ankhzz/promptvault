@@ -11,6 +11,35 @@ const NODES = [
   { label: 'Authorized Access', sub: null },
 ] as const
 
+type Keyframe = { p: number; t: number; ease?: 'ease-in' }
+
+const KEYFRAMES: Keyframe[] = [
+  { p: 0.0, t: 0 },
+  { p: 0.2, t: 1200 },
+  { p: 0.4, t: 2400 },
+  { p: 0.4, t: 2800 },
+  { p: 0.6, t: 3900 },
+  { p: 0.8, t: 5100 },
+  { p: 0.8, t: 5900 },
+  { p: 1.0, t: 7100, ease: 'ease-in' },
+  { p: 1.0, t: 7800 },
+]
+
+const CYCLE_MS = 8000
+
+function getProgress(cycleT: number): number {
+  for (let i = 1; i < KEYFRAMES.length; i++) {
+    if (cycleT <= KEYFRAMES[i].t) {
+      const k0 = KEYFRAMES[i - 1]
+      const k1 = KEYFRAMES[i]
+      const seg = (cycleT - k0.t) / (k1.t - k0.t)
+      const eased = k1.ease === 'ease-in' ? seg * seg * seg : seg
+      return k0.p + (k1.p - k0.p) * eased
+    }
+  }
+  return 1.0
+}
+
 export function TheFlow() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -45,12 +74,11 @@ export function TheFlow() {
     }
 
     startRef.current = performance.now()
-    const DURATION = 8000
 
     intervalRef.current = setInterval(() => {
       const elapsed = performance.now() - startRef.current
-      const p = (elapsed % DURATION) / DURATION
-      setProgress(p)
+      const cycleT = elapsed % CYCLE_MS
+      setProgress(getProgress(cycleT))
     }, 30)
 
     return () => {
@@ -60,7 +88,7 @@ export function TheFlow() {
 
   const getNodeState = (index: number): 'pending' | 'active' | 'passed' => {
     const center = index / (NODES.length - 1)
-    if (Math.abs(progress - center) < 0.025) return 'active'
+    if (Math.abs(progress - center) < 0.03) return 'active'
     return progress > center ? 'passed' : 'pending'
   }
 

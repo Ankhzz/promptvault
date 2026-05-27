@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ShieldIcon, LockIcon, KeyIcon, FileIcon, CheckIcon, VaultIcon } from '@/components/Icons'
+import { ShieldIcon, KeyIcon, FileIcon, CheckIcon, VaultIcon } from '@/components/Icons'
 
 type Step = 0 | 1 | 2 | 3
 
@@ -9,13 +9,14 @@ const STEP_LABELS = [
   'Select Vault Type',
   'Upload Prompt',
   'Confirm Encryption',
-  'License-Gated Access Active',
+  'Authorized Access',
 ]
 
 export function VaultCreationDemo() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const [step, setStep] = useState<Step>(0)
+  const [accessPhase, setAccessPhase] = useState(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearTimer = useCallback(() => {
@@ -47,11 +48,27 @@ export function VaultCreationDemo() {
   }, [clearTimer])
 
   useEffect(() => {
+    if (step !== 3) {
+      setAccessPhase(0)
+      return
+    }
+
+    const phaseTimers = [
+      setTimeout(() => setAccessPhase(1), 1500),
+      setTimeout(() => setAccessPhase(2), 3000),
+      setTimeout(() => setAccessPhase(3), 4500),
+      setTimeout(() => setAccessPhase(4), 5500),
+    ]
+
+    return () => phaseTimers.forEach(clearTimeout)
+  }, [step])
+
+  useEffect(() => {
     if (!visible) return
 
     clearTimer()
 
-    const durations = [3500, 4000, 3500, 4500]
+    const durations = [3500, 4000, 3500, 7000]
     timerRef.current = setTimeout(
       () => setStep((s) => (s < 3 ? (s + 1) as Step : 0 as Step)),
       durations[step],
@@ -186,32 +203,61 @@ export function VaultCreationDemo() {
               )}
 
               {step === 3 && (
-                <div className="flex flex-col items-center gap-5 py-2">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-success/30 bg-success-muted animate-fade-in-scale">
-                    <LockIcon className="h-7 w-7 text-success" />
-                  </div>
-                  <div
-                    className="inline-flex items-center gap-1.5 rounded-[6px] border border-success/30 px-2 py-0.5 text-xs font-medium text-success animate-fade-in"
-                  >
-                    <CheckIcon className="h-3 w-3" />
-                    Protected
-                  </div>
-                  <div className="w-full max-w-[280px] space-y-1.5 text-xs">
-                    {[
-                      { label: 'Vault', value: '#0042' },
-                      { label: 'Type', value: 'Licensed' },
-                      { label: 'Access', value: 'License Token Required' },
-                    ].map((item, i) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-between border-b border-border pb-1 animate-fade-in"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      >
-                        <span className="text-subtle">{item.label}</span>
-                        <span className="text-foreground font-medium">{item.value}</span>
+                <div key={`auth-${accessPhase}`} className="flex flex-col items-center justify-center h-full animate-fade-in">
+                  {accessPhase === 0 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="relative flex h-4 w-4">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-75 animate-ping" style={{ animationDuration: '2s' }} />
+                        <span className="relative inline-flex h-4 w-4 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" />
+                      </span>
+                      <p className="text-sm font-medium text-foreground">Verifying License Token...</p>
+                      <p className="text-xs text-subtle">Checking on-chain ownership</p>
+                    </div>
+                  )}
+                  {accessPhase === 1 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-background animate-pulse-glow">
+                        <ShieldIcon className="h-6 w-6 text-accent" />
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-sm font-medium text-foreground">Threshold Recovery Initiated</p>
+                      <p className="text-xs text-subtle">CDR validator network responding</p>
+                    </div>
+                  )}
+                  {accessPhase === 2 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <span
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${i < 3 ? 'bg-accent shadow-[0_0_4px_var(--accent)]' : 'bg-border'}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">3-of-5 Validator Partials Recovered</p>
+                      <p className="text-xs text-subtle">Threshold met — reconstructing key</p>
+                    </div>
+                  )}
+                  {accessPhase === 3 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-background animate-fade-in-scale">
+                        <KeyIcon className="h-6 w-6 text-accent" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Data Key Reconstructed</p>
+                      <p className="text-xs text-subtle">32-byte key assembled from partials</p>
+                    </div>
+                  )}
+                  {accessPhase === 4 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-success/30 bg-success-muted animate-fade-in-scale">
+                        <ShieldIcon className="h-6 w-6 text-success" />
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 rounded-[6px] border border-success/30 px-2 py-0.5 text-xs font-medium text-success">
+                        <CheckIcon className="h-3 w-3" />
+                        Authorized Access Granted
+                      </div>
+                      <p className="text-xs text-subtle">Content ready to decrypt</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
