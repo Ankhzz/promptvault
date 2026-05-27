@@ -7,7 +7,7 @@ const __dirname = dirname(__filename);
 const libPath = resolve(__dirname, "lib/cdr-sdk");
 
 const nextConfig = {
-  serverExternalPackages: ["postgres"],
+  serverExternalPackages: ["postgres", "bls-eth-wasm"],
   turbopack: {
     resolveAlias: {
       "@piplabs/cdr-contracts": "./lib/cdr-sdk/contracts/index.js",
