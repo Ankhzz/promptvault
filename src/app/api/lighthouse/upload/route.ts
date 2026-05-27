@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       body,
       headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(30_000),
     })
     console.log('[lighthouse] response status:', lhResponse.status)
 
