@@ -316,6 +316,14 @@ export default function VaultDetailPage() {
           return
         }
 
+        const balance = await publicClient.readContract({
+          address: CONTRACTS.MUSDC_TOKEN,
+          abi: MUSDC_ABI,
+          functionName: 'balanceOf',
+          args: [wallet.address as Address],
+        })
+        if (balance < priceWei) throw new Error('Insufficient MUSDC balance')
+
         purchaseStepRef.current = 'approving'
         setPurchaseStep('approving')
         addToast({ title: 'Approving MUSDC...', description: 'Confirm the approval in your wallet', variant: 'default' })
@@ -337,7 +345,8 @@ export default function VaultDetailPage() {
             account: wallet.address as Address,
             chain: { id: STORY_CHAIN.id, name: STORY_CHAIN.name, nativeCurrency: { name: 'IP', symbol: 'IP', decimals: 18 }, rpcUrls: { default: { http: [STORY_CHAIN.rpcUrl] } } },
           })
-          await publicClient.waitForTransactionReceipt({ hash: approveTxHash })
+          const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTxHash })
+          if (approveReceipt.status !== 'success') throw new Error('MUSDC approval failed')
           addToast({ title: 'MUSDC approved!', variant: 'accent' })
         } else {
           addToast({ title: 'MUSDC already approved', variant: 'default' })
@@ -355,7 +364,8 @@ export default function VaultDetailPage() {
           account: wallet.address as Address,
           chain: { id: STORY_CHAIN.id, name: STORY_CHAIN.name, nativeCurrency: { name: 'IP', symbol: 'IP', decimals: 18 }, rpcUrls: { default: { http: [STORY_CHAIN.rpcUrl] } } },
         })
-        await publicClient.waitForTransactionReceipt({ hash: purchaseTxHash })
+        const purchaseReceipt = await publicClient.waitForTransactionReceipt({ hash: purchaseTxHash })
+        if (purchaseReceipt.status !== 'success') throw new Error('Marketplace purchase failed')
         addToast({ title: 'MUSDC payment successful!', variant: 'accent' })
       }
 
