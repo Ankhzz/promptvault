@@ -110,9 +110,9 @@ For vaults the user created, there is a faster path that bypasses CDR:
 3. Decrypt data key locally (no validators, no gas)
 4. Decrypt content with AES-256-GCM
 ```
+**Advantage**: instant, no gas, no 30-90s validator wait.
 
-**Ventaja**: instant, no gas, no 30-90s validator wait.
-**Limitación**: only works for the wallet that created the vault.
+**Limitation**: only works for the wallet that created the vault.
 
 #### Buyer Backup
 
@@ -126,7 +126,7 @@ flowchart LR
     D --> E[No gas, no validators]
 ```
 
-**Requisito**: one successful CDR unlock first. The backup is created as a side effect of that first access.
+**Requirement**: one successful CDR unlock first. The backup is created as a side effect of that first access.
 
 ### 4.4 Marketplace Purchase
 
@@ -159,7 +159,7 @@ User → [Privy Auth] → [Frontend Next.js 16]
             (Encrypted Content)
 ```
 
-### Componentes
+### Components
 
 | Component | Role |
 |-----------|------|
