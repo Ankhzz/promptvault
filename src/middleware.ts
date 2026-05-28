@@ -27,7 +27,7 @@ const SECURITY_HEADERS: Record<string, string> = {
 // Best-effort in-memory rate limiter (per-edge-worker, not global on Vercel).
 // For production with multiple instances, add Vercel KV or Upstash.
 const RATE_LIMIT_WINDOW = 60_000
-const RATE_LIMIT_MAX = 40
+const RATE_LIMIT_MAX = 200
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
 function checkRateLimit(ip: string): boolean {
@@ -127,6 +127,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|_next/data).*)',
   ],
 }
