@@ -3,11 +3,11 @@
 :root,
 [data-theme="dark"] {
   --background: #000000;
-  --background-elevated: #0b0e14;
+  --background-elevated: #000000;
   --surface: #000000;
   --surface-hover: #1b1b1b;
   --surface-active: #292d30;
-  --border: #292d30;
+  --border: #1a1a1a;
   --border-subtle: #1b1b1b;
   --border-focus: #3b9eff;
   --foreground: #f0f0f0;
@@ -15,7 +15,7 @@
   --foreground-subtle: #6c6c6c;
   --accent: #3b9eff;
   --accent-hover: #70b8ff;
-  --accent-muted: rgba(59, 158, 255, 0.12);
+  --accent-muted: rgba(255, 255, 255, 0.04);
   --accent-strong: rgba(59, 158, 255, 0.25);
   --violet: #9281f7;
   --violet-muted: rgba(146, 129, 247, 0.12);
