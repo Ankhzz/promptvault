@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { VaultIcon, EyeIcon, PricetagIcon } from '@/components/Icons'
-import { getVaultsForSale } from '@/db/queries'
+import { getVaultsForSale, getPurchasesForBuyer } from '@/db/queries'
+import { useWallets } from '@privy-io/react-auth'
 
 type ForSaleVault = Awaited<ReturnType<typeof getVaultsForSale>>[number]
 
@@ -25,6 +26,19 @@ export default function ExplorePage() {
   const [vaults, setVaults] = useState<ForSaleVault[]>([])
   const [loading, setLoading] = useState(true)
   const { addToast } = useToast()
+  const { wallets } = useWallets()
+  const address = wallets[0]?.address
+  const [purchasedUuids, setPurchasedUuids] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    if (!address) { setPurchasedUuids(new Set()); return }
+    let cancelled = false
+    getPurchasesForBuyer(address).then(purchases => {
+      if (cancelled) return
+      setPurchasedUuids(new Set(purchases.filter(p => p.paid).map(p => p.vaultUuid)))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [address])
 
   useEffect(() => {
     setLoading(true)
@@ -96,10 +110,16 @@ export default function ExplorePage() {
                     </span>
                   </div>
 
-                  <Link href={`/vault/${vault.uuid}`} className={`${buttonVariants('outline', 'sm')} w-full`}>
-                    <EyeIcon className="h-3.5 w-3.5 mr-1" />
-                    View Vault
-                  </Link>
+                  {address && (address.toLowerCase() === vault.ownerAddress.toLowerCase() || purchasedUuids.has(vault.uuid)) ? (
+                    <Link href={`/vault/${vault.uuid}`} className={`${buttonVariants('primary', 'sm')} w-full`}>
+                      Open Vault
+                    </Link>
+                  ) : (
+                    <Link href={`/vault/${vault.uuid}`} className={`${buttonVariants('outline', 'sm')} w-full`}>
+                      <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                      View & Buy Vault
+                    </Link>
+                  )}
                 </div>
               </Card>
             ))}
