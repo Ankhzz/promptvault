@@ -522,11 +522,6 @@ export default function CreateVaultPage() {
       return
     }
 
-    if (!selectedFile) {
-      addToast({ title: 'File required', description: 'Upload a file before creating a vault', variant: 'warning' })
-      return
-    }
-
     isRunningRef.current = true
     const clients = await getClients()
     if (!clients) {
@@ -717,7 +712,7 @@ export default function CreateVaultPage() {
             <CardDescription>
               {selectedFile
                 ? 'File will be encrypted client-side before upload'
-                : 'Optional: attach a file to encrypt and store on IPFS'}
+                : 'Required: upload a file to encrypt, protect and store on IPFS'}
             </CardDescription>
           </CardHeader>
           <CardContent>
