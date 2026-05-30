@@ -558,11 +558,11 @@ export default function CreateVaultPage() {
       { key: 'register' as Step, label: 'Register IP Asset', done: !!result.ipId },
       { key: 'mint' as Step, label: 'Mint License Token', done: !!result.licenseTokenId },
     ] : []),
-    { key: 'upload' as Step, label: vaultType === 'private' ? 'Encrypt & Upload Private CDR' : vaultType === 'timelocked' ? 'Encrypt & Upload Time-Locked CDR' : 'Encrypt & Upload CDR', done: !!result.vaultUuid },
+    { key: 'upload' as Step, label: 'Secure Vault Key On-Chain', done: !!result.vaultUuid },
     ...(selectedFile ? [
-      { key: 'encrypt_file' as Step, label: 'Encrypt File & Upload IPFS', done: !!result.ipfsCid },
+      { key: 'encrypt_file' as Step, label: 'Encrypt & Upload Content to IPFS', done: !!result.ipfsCid },
     ] : []),
-    { key: 'encrypt_key' as Step, label: 'Encrypt Data Key', done: !!result.vaultUuid },
+    { key: 'encrypt_key' as Step, label: 'Backup Vault Key to Wallet', done: !!result.vaultUuid },
     { key: 'persist' as Step, label: 'Save Vault Record', done: result.dbPersisted !== undefined },
   ]
 
