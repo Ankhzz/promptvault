@@ -522,6 +522,11 @@ export default function CreateVaultPage() {
       return
     }
 
+    if (!selectedFile) {
+      addToast({ title: 'File required', description: 'Upload a file before creating a vault', variant: 'warning' })
+      return
+    }
+
     isRunningRef.current = true
     const clients = await getClients()
     if (!clients) {
@@ -843,7 +848,7 @@ onClick={step === 'done' ? () => {
           isRunningRef.current = false
           } : runFullFlow}
           loading={step !== 'idle' && step !== 'done'}
-          disabled={(step !== 'idle' && step !== 'done') || (!wasmReady && !wasmError)}
+          disabled={(step !== 'idle' && step !== 'done') || (!wasmReady && !wasmError) || (!selectedFile && step === 'idle')}
           className="w-full"
         >
           {step === 'done' ? 'Create Another' : wasmError ? 'WASM failed - refresh page' : !wasmReady ? 'Loading WASM...' : 'Create Vault'}
