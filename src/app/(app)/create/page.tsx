@@ -720,15 +720,27 @@ export default function CreateVaultPage() {
               ref={fileInputRef}
               type="file"
               className="hidden"
+              accept=".txt,.md,.json,.yaml,.yml,.csv,.xml,.html,.js,.ts,.py,.sh"
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (file) {
-                  if (file.size > 10 * 1024 * 1024) {
-                    addToast({ title: 'File too large', description: 'Maximum file size is 10 MB', variant: 'warning' })
-                    return
-                  }
-                  setSelectedFile(file)
+                if (!file) return
+
+                if (e.target) e.target.value = ''
+
+                const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+                const ALLOWED = ['.txt', '.md', '.json', '.yaml', '.yml', '.csv', '.xml', '.html', '.js', '.ts', '.py', '.sh']
+
+                if (file.size > 5 * 1024 * 1024) {
+                  addToast({ title: 'File too large', description: 'Maximum file size is 5 MB. Allowed: .txt, .md, .json, .yaml, .yml, .csv, .xml, .html, .js, .ts, .py, .sh', variant: 'warning' })
+                  return
                 }
+
+                if (!ALLOWED.includes(ext)) {
+                  addToast({ title: 'Invalid file type', description: `Allowed: ${ALLOWED.join(', ')}`, variant: 'warning' })
+                  return
+                }
+
+                setSelectedFile(file)
               }}
               disabled={step !== 'idle'}
             />
