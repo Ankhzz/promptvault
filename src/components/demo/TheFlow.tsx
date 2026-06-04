@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 const NODES = [
   { label: 'Prompt', sub: null },
   { label: 'Encrypt', sub: 'AES-256-GCM' },
-  { label: 'Split', sub: 'CDR 3-of-5' },
+  { label: 'Protect Key', sub: 'CDR Threshold' },
   { label: 'Store', sub: 'IPFS' },
   { label: 'License', sub: 'Story Protocol' },
   { label: 'Authorized Access', sub: null },

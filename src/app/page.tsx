@@ -140,7 +140,7 @@ export default function LandingPage() {
                 {
                   step: '02',
                   title: 'Encrypt & Protect',
-                  description: 'The key is split across CDR validators. On-chain rules decide who can request access.',
+                  description: 'The key is encrypted via CDR threshold encryption. On-chain rules decide who can request access.',
                   icon: ShieldIcon,
                 },
                 {
