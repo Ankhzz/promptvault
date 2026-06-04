@@ -41,7 +41,7 @@ Upload Prompt
      ↓
 Encrypt Locally (AES-256-GCM)
      ↓
-Threshold Encrypt Key via CDR (3-of-5)
+Protect Vault Key via CDR Threshold Encryption
      ↓
 Store Encrypted Content on IPFS
      ↓
@@ -67,8 +67,8 @@ No single entity ever holds the complete decryption key.
 - **Licensed Vaults** — Register an IP Asset on Story Protocol. Mint license tokens that grant decryption access. Built-in marketplace for selling prompt collections.
 - **Private Vaults** — Owner-only EOA access. Maximum privacy — only your wallet can decrypt.
 - **Time-Locked Vaults** — On-chain smart contract enforces an unlock timestamp. Anyone can decrypt after the deadline.
-- **Threshold Encryption** — Data keys are distributed across 5 CDR validators. 3-of-5 partials required to reconstruct the key.
-- **Buyer Backup Recovery** — After the first successful CDR unlock, buyers receive an encrypted local backup (EIP-712) for gasless future access.
+- **Threshold Encryption** — Vault keys are encrypted via CDR threshold encryption (TDH2). Validators produce partial decryptions on demand when on-chain access conditions are met. A 3-of-5 threshold of partials is required to recover the key.
+- **Wallet-Signed Backup Recovery** — After the first successful CDR unlock, the vault key is encrypted using an EIP-712 wallet signature and stored as a signed data key backup, enabling gasless future access.
 - **Built-In Marketplace** — Creators publish vaults with prices in MUSDC. Purchases mint license tokens and grant decryption rights.
 - **3D Interactive Hero** — Procedural vault model rendered with React Three Fiber.
 - **Dark / Light Theme** — Resend-inspired matte black UI with a light mode toggle.
