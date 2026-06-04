@@ -28,7 +28,7 @@ Version 1.0 — Story Protocol × CDR Hackathon 2025
 
 PromptVault lets creators protect prompts, workflows, and AI assets using threshold-encrypted vaults with on-chain access control on Story Protocol.
 
-Instead of trusting a single server with your intellectual property, the encryption key is split across independent validators. No single entity — not even us — can decrypt without authorization.
+Instead of trusting a single server with your intellectual property, the encryption key is protected by CDR threshold encryption — encrypted as a single ciphertext that requires 3-of-5 validator consensus to decrypt. No single entity — not even us — can decrypt without authorization.
 
 ---
 
@@ -79,11 +79,11 @@ flowchart TD
     B --> C[Upload Ciphertext to IPFS]
     C --> D[Register IP Asset<br/>on Story Protocol]
     D --> E[Mint License Token]
-    E --> F[CDR: Allocate & Threshold Encrypt<br/>Data Key → 5 Partials]
+    E --> F[CDR: Allocate & Threshold Encrypt<br/>Data Key → Ciphertext On-Chain]
     F --> G[(Database: uuid, CID,<br/>ipId, price, owner)]
 ```
 
-**Why AES + CDR?** The content is encrypted with AES-256-GCM (fast, standard). The AES key is then threshold-encrypted with CDR. This combines speed with distributed security.
+**Why AES + CDR?** The content is encrypted with AES-256-GCM (fast, standard). The vault data key is then threshold-encrypted with CDR. This combines speed with distributed security.
 
 ### 4.2 Access a Vault (Threshold Decryption)
 
@@ -92,9 +92,9 @@ When a user owns a license token and wants to read the content:
 ```mermaid
 flowchart LR
     A[User Requests Access] --> B{CDR Validators<br/>Check License}
-    B -->|License Valid| C[3 of 5 Partials<br/>Returned]
+    B -->|License Valid| C[3 of 5 Partial<br/>Decryptions]
     B -->|No License| D[Access Denied]
-    C --> E[Reconstruct Data Key]
+    C --> E[Recover Vault Key]
     E --> F[Decrypt Content<br/>AES-256-GCM Locally]
 ```
 
@@ -106,7 +106,7 @@ For vaults the user created, there is a faster path that bypasses CDR:
 
 ```
 1. Sign EIP-712 message with wallet
-2. Signature derives AES key (wallet address + vault UUID as seed)
+2. Signature derives an encryption key bound to the wallet
 3. Decrypt data key locally (no validators, no gas)
 4. Decrypt content with AES-256-GCM
 ```
@@ -166,7 +166,7 @@ User → [Privy Auth] → [Frontend Next.js 16]
 | **Privy** | Social auth (Google, GitHub, email) + embedded wallets |
 | **Next.js 16** | Frontend and server actions |
 | **Story Protocol** | IP Asset registration, license minting, marketplace |
-| **CDR SDK** | Threshold encryption (Shamir's Secret Sharing 3-of-5) |
+| **CDR SDK** | Threshold encryption via TDH2 with DKG committee (3-of-5) |
 | **PostgreSQL (Supabase)** | Vault metadata, users, prices |
 | **IPFS (Pinata)** | Decentralized encrypted content storage |
 
@@ -174,28 +174,31 @@ User → [Privy Auth] → [Frontend Next.js 16]
 
 ## 6. Security Model
 
-### Threshold Encryption (3-of-5)
+### Threshold Encryption via TDH2 (3-of-5)
 
-The vault's master key is split into 5 fragments (partials) using Shamir's Secret Sharing. Each fragment is held by a different CDR validator. Reconstruction requires **at least 3 of 5** fragments.
+The vault key is encrypted as a single ciphertext using TDH2 (Threshold Decryption) with the CDR network's global public key. The ciphertext is stored on-chain in the CDR contract.
+
+To decrypt, a user must collect partial decryptions from at least 3 of 5 CDR validators. Each validator independently verifies the on-chain access condition before producing a partial. The partials are then combined with the on-chain ciphertext to recover the vault key.
 
 ```mermaid
 flowchart LR
     subgraph Validator_Network[CDR Validator Network]
-        V1[Validator 1] -->|Partial| R
-        V2[Validator 2] -->|Partial| R
-        V3[Validator 3] -->|Partial| R
-        V4[Validator 4] -.->|2 not needed| R
-        V5[Validator 5] -.->|2 not needed| R
+        V1[Validator 1] -->|Produces Partial| R
+        V2[Validator 2] -->|Produces Partial| R
+        V3[Validator 3] -->|Produces Partial| R
+        V4[Validator 4] -.->|Not needed| R
+        V5[Validator 5] -.->|Not needed| R
     end
-    R{3-of-5 Threshold} --> K[Data Key Reconstructed]
+    CT[(On-Chain Ciphertext)] --> R
+    R{3-of-5 Combine} --> K[Data Key Reconstructed]
     K --> D[Content Decrypted Locally]
 ```
 
 **What this means in practice:**
 
-- **No single validator can decrypt** — each holds a meaningless fragment
-- **If a validator is compromised** — the other 4 still protect the key
-- **If a validator goes down** — the remaining 4 can still serve partials
+- **No single validator can decrypt** — each partial is meaningless alone
+- **Validators verify on-chain** — they only produce partials if the access condition is met
+- **If a validator goes down** — the remaining 4 can still serve the threshold
 - **Not even PromptVault** can decrypt your vaults
 
 ### Client-Side Encryption
@@ -210,7 +213,7 @@ All encryption and decryption happens in the user's browser. The server never se
 
 The backup key is derived from an EIP-712 signature. This means:
 - Only the signing wallet can derive the key
-- The signature is never stored anywhere
+- The wallet signature is used client-side to derive an encryption key and is never stored. Only the resulting encrypted data key is saved to the database
 - No centralized master key to steal
 
 ---
@@ -280,7 +283,7 @@ Registering a prompt as an IP Asset on Story Protocol establishes proof of owner
 - **Time-Locked**: scheduled releases or public content
 
 ### 5. No Single Point of Failure
-- If Pinata (IPFS) goes down — content is still in CDR (validators store partials)
+- If the application goes down — ownership records and vault access controls remain verifiable on-chain
 - If a CDR validator goes down — the other 4 keep working
 - If you lose wallet access — EIP-712 backup recovers private vaults
 
@@ -290,7 +293,7 @@ Registering a prompt as an IP Asset on Story Protocol establishes proof of owner
 
 ### How is it guaranteed that even validators cannot see the content?
 
-CDR validators only store **partials** of the key — individual fragments that are meaningless on their own. The actual content is encrypted with AES-256-GCM, and the AES key is threshold-encrypted with CDR. A validator with a single partial cannot reconstruct the AES key. 3 of 5 partials are required, and validators only deliver them if the on-chain condition is met.
+CDR validators hold DKG key shares that allow them to produce **partial decryptions** on demand — each partial is meaningless alone. The actual content is encrypted with AES-256-GCM, and the vault data key is protected by CDR threshold encryption. A single partial cannot recover the vault data key. 3 of 5 partials are required, and validators only produce them after verifying the on-chain access condition is met.
 
 ### What happens if I lose access to my wallet?
 
@@ -298,7 +301,7 @@ For **Private** vaults you created, the EIP-712 backup lets you recover access b
 
 For **Licensed** vaults you purchased, you need access to the wallet that bought the license token. The ERC-721 token lives in that wallet. If you lose it, you lose access — this is intentional, the same security as any NFT.
 
-**Important**: If you completed at least one CDR unlock as a buyer, the frontend automatically saves an encrypted local backup in `purchases.encryptedDataKey`. While you have access to that wallet (via Privy or seed phrase), you can use "Recover from Local Backup" without needing the license token.
+**Important**: If you completed at least one CDR unlock as a buyer, the frontend automatically saves an encrypted data key backup signed by the wallet in `purchases.encryptedDataKey`. While you have access to that wallet (via Privy or seed phrase), you can use "Recover from Local Backup" without needing the license token.
 
 ### How does the marketplace work?
 
@@ -328,7 +331,7 @@ CDR on testnet (Aeneid) uses gas in IP tokens (free from the faucet). Each opera
 
 On mainnet, CDR would have associated gas costs. However, there are two gas-free paths:
 - **Private vaults**: Creator EIP-712 backup, instant
-- **Licensed vaults (buyers)**: After the first CDR unlock, the frontend saves an encrypted local backup. Subsequent accesses are "Recover from Local Backup" — no gas, no validators.
+- **Licensed vaults (buyers)**: After the first CDR unlock, the frontend saves an encrypted data key backup. Subsequent accesses are "Recover from Local Backup" — no gas, no validators.
 
 ### Can it be migrated to mainnet?
 
